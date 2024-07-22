@@ -18,23 +18,18 @@ class Dinov2Tune(nn.Module):
     def __init__(self, backbone_model, out_dim):
         super(Dinov2Tune, self).__init__()
         self.backbone_model = deepcopy(backbone_model)
-        self.labels_head = nn.Sequential(nn.Linear(1024, 256), nn.ReLU(), nn.Linear(256, out_dim))
-        # is this enough layers? need to make sure that the head is big enough so that the last layers of dino will output features
-        # and do not change to "detection layers"
+        self.labels_head = nn.Sequential(nn.Linear(1024, 256), nn.ReLU(), nn.Linear(256, out_dim), nn.Softmax(dim=1))
 
     def forward(self, frame):
         features = self.backbone_model(frame)
-        # print("features size is: ", features.size())
         labels_prob = self.labels_head(features)
-        # print("labels size is: ", labels_prob.size())
-        # with torch.no_grad(): # this is a non differentiable operation
-            # one_hot_vector = F.one_hot(torch.argmax(labels_prob), num_classes=labels_prob.size(0)).float()
-        max_index = torch.argmax(labels_prob)
-        output = torch.zeros_like(labels_prob)
-        output[0, max_index] = 1
 
-        # print("output size is: ", output.size())
-        return output
+        # with torch.no_grad(): # this is a non differentiable operation
+        # max_index = torch.argmax(labels_prob)
+        # output = torch.zeros_like(labels_prob)
+        # output[0, max_index] = 1
+        # print(output)
+        return labels_prob
 
 def create_model():
     REPO_PATH = "/home/muradek/project/DINO_dir/dinov2" # Specify a local path to the repository (or use installed package instead)
@@ -63,7 +58,7 @@ def create_model():
     return model
 
 def main():
-    REPO_PATH = "/home/muradek/project/DINO_dir/dinov2" # Specify a local path to the repository (or use installed package instead)
+    REPO_PATH = "/home/muradek/project/Action_Detection_project" # Specify a local path to the repository (or use installed package instead)
     sys.path.append(REPO_PATH)
     
     BACKBONE_SIZE = "large" # in ("small", "base", "large" or "giant")

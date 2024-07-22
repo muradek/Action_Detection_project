@@ -1,3 +1,12 @@
+try.py
+*.txt
+bin/
+lib*
+*cfg
+*.out
+pics/
+*.sh
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
