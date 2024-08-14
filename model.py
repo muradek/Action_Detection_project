@@ -15,10 +15,10 @@ from torchvision import datasets, transforms
 
 
 class Dinov2Tune(nn.Module):
-    def __init__(self, backbone_model, out_dim):
+    def __init__(self, backbone_model, embedding_dim, out_dim):
         super(Dinov2Tune, self).__init__()
         self.backbone_model = deepcopy(backbone_model)
-        self.labels_head = nn.Sequential(nn.Linear(1024, 256), nn.ReLU(), nn.Linear(256, out_dim), nn.Softmax(dim=1))
+        self.labels_head = nn.Sequential(nn.Linear(embedding_dim, 256), nn.ReLU(), nn.Linear(256, out_dim), nn.Softmax(dim=1))
 
     def forward(self, frame):
         features = self.backbone_model(frame)
@@ -31,11 +31,13 @@ class Dinov2Tune(nn.Module):
         # print(output)
         return labels_prob
 
-def create_model():
+def create_model(backbone_size):
     REPO_PATH = "/home/muradek/project/DINO_dir/dinov2" # Specify a local path to the repository (or use installed package instead)
     sys.path.append(REPO_PATH)
     
-    BACKBONE_SIZE = "large" # in ("small", "base", "large" or "giant")
+    possible_sizes = ["small", "base", "large", "giant"]
+    if not(backbone_size in possible_sizes):
+        print("backbone size is invalid")
 
     backbone_archs = {
         "small": "vits14",
@@ -43,15 +45,23 @@ def create_model():
         "large": "vitl14",
         "giant": "vitg14",
     }
-    backbone_arch = backbone_archs[BACKBONE_SIZE]
+    backbone_arch = backbone_archs[backbone_size]
     backbone_name = f"dinov2_{backbone_arch}"
 
     backbone_model = torch.hub.load(repo_or_dir="facebookresearch/dinov2", model=backbone_name)
     backbone_model.eval()
     # backbone_model.cuda()
+    
+    backbone_embeddings = {
+        "small": 384,
+        "base": 768,
+        "large": 1024,
+        "giant": 1536,
+    }
 
+    embedding_dim = backbone_embeddings[backbone_size]
     out_dim = 11 # number of classes for detection
-    model = Dinov2Tune(backbone_model, out_dim) # maybe pass reference of the model, or model args and consruct it in the __init__?
+    model = Dinov2Tune(backbone_model, embedding_dim, out_dim) # maybe pass reference of the model, or model args and consruct it in the __init__?
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device) 
     
