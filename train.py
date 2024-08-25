@@ -5,14 +5,14 @@ from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
 
 from model import create_model
-from prepare_data2 import SampledDataset
+from prepare_data import SampledDataset
 
 import os
 
 
 def train_model(model, criterion, optimizer, dataloader, num_epochs):
     for epoch in range(num_epochs):  # Number of epochs
-        print(torch.cuda.memory_summary())
+        # print(torch.cuda.memory_summary())
         losses = []
         for frame, label in dataloader:
             frame, label = frame.cuda(), label.cuda()
@@ -42,14 +42,14 @@ def main():
     transforms.ToTensor()])
 
     # prepare_data.py
-    # src_dir = "/home/muradek/project/DINO_dir/small_set"
-    # sample_frequency = 100
-    # dataset = SampledDataset(src_dir, sample_frequency, transform)
+    src_dir = "/home/muradek/project/Action_Detection_project/small_set"
+    sample_frequency = 100
+    dataset = SampledDataset(src_dir, sample_frequency, transform)
 
     # prepare_data2.py
-    frames_paths = "/home/muradek/project/Action_Detection_project/new_format/frames.csv"
-    labels_path = "/home/muradek/project/Action_Detection_project/new_format/labels.csv"
-    dataset = SampledDataset(frames_paths, labels_path, transform=transform)
+    # frames_paths = "/home/muradek/project/Action_Detection_project/new_format/frames.csv"
+    # labels_path = "/home/muradek/project/Action_Detection_project/new_format/labels.csv"
+    # dataset = SampledDataset(frames_paths, labels_path, transform=transform)
 
     print("total frames number is: ", dataset.__len__())
     
@@ -57,7 +57,6 @@ def main():
 
     # Instantiate the model, loss function, and optimizer
     model_size = "base" # in ["small", "base", "large", "giant"]
-    print("model size is: ", model_size)
     model = create_model(model_size)
 
     # param_size = 0
