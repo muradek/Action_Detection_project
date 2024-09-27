@@ -8,8 +8,10 @@ import csv
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from datetime import datetime
 
-def sample_video(video_path, labels_csv_path, dst_dir, sample_frequency=100):
+
+def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
     video_name = video_path.rsplit('/', 1)[-1] #get the name of the video without path prefix
 
     # prepare frames:
@@ -42,7 +44,11 @@ def sample_video(video_path, labels_csv_path, dst_dir, sample_frequency=100):
 
     return frames_paths, sampled_labels
 
-def sample_all_data(src_dir, dst_dir, sample_frequency):
+def sample_all_videos(src_dir, sample_frequency):
+    current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+    dst_dir = src_dir + "_sampled_" + current_time 
+    os.makedirs(dst_dir)
+
     videos_paths = [f for f in os.listdir(src_dir) if f.endswith('.mp4')]
     labels_paths = [f for f in os.listdir(src_dir) if f.endswith('.csv')]
     all_frames = []
@@ -51,7 +57,7 @@ def sample_all_data(src_dir, dst_dir, sample_frequency):
     for video, labels in zip(videos_paths, labels_paths):
         abs_video_path = os.path.join(src_dir, video)
         abs_labels_path = os.path.join(src_dir, labels)
-        frames_paths, sampled_labels = sample_video(abs_video_path, abs_labels_path, dst_dir, sample_frequency)
+        frames_paths, sampled_labels = sample_one_video(abs_video_path, abs_labels_path, dst_dir, sample_frequency)
         all_frames.extend(frames_paths)
         all_labels.extend(sampled_labels)
     
@@ -71,10 +77,33 @@ def sample_all_data(src_dir, dst_dir, sample_frequency):
     return frames_csv_path, labels_csv_path
 
 class SampledDataset(Dataset):
-    def __init__(self, frames_paths, labels_path, transform=None):
-
+    def __init__(self, src_dir, sample_frequency=100, transform=None):
         self.frames_list = []
         self.labels_list = []
+        self.load_data_from_dir(src_dir, sample_frequency)
+        self.transform = transform
+
+    def load_data_from_dir(self, src_dir, sample_frequency):
+        # determine type of src_dir
+        src_is_video = False
+        src_is_jpg = False
+        for filename in os.listdir(src_dir):
+            if filename.endswith('.mp4'):
+                src_is_video = True
+                break
+            elif filename.endswith('.jpg'):
+                src_is_jpg = True
+                break
+
+        if src_is_video:
+            frames_paths, labels_path = sample_all_videos(src_dir, sample_frequency)
+        elif src_is_jpg:
+            frames_paths = os.path.join(src_dir, "frames.csv")
+            labels_path = os.path.join(src_dir, "labels.csv")
+        else:
+            print("ERROR: src_dir format")
+            exit(0)
+
         with open(frames_paths, mode='r') as frames_file:
             frames_reader = csv.reader(frames_file)
             with open(labels_path, mode='r') as labels_file:
@@ -84,7 +113,6 @@ class SampledDataset(Dataset):
                     label_int_list = [eval(i) for i in label]
                     self.frames_list.append(frame_str)
                     self.labels_list.append(label_int_list)
-        self.transform = transform
 
     def __len__(self):
         return len(self.frames_list)
@@ -117,9 +145,7 @@ def main():
 
     src_dir = "/home/muradek/project/Action_Detection_project/small_set"
     dst_dir = "/home/muradek/project/Action_Detection_project/new_format"
-
-    frames_csv, labels_csv = sample_all_data(src_dir, dst_dir, sample_frequency = 100)
-    dataset = SampledDataset(frames_csv, labels_csv)
+    dataset = SampledDataset(src_dir, dst_dir, sample_frequency = 100)
 
 if __name__ == "__main__":
     main()
