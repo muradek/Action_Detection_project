@@ -45,7 +45,6 @@ class Dinov2Tune(nn.Module):
         out_dim = 11 # number of classes for detection
 
         self.backbone_model = torch.hub.load(repo_or_dir="facebookresearch/dinov2", model=backbone_name)
-        self.backbone_model.eval()
 
         self.labels_head = nn.Sequential(nn.Linear(embedding_dim, 256), nn.ReLU(), nn.Linear(256, out_dim), nn.Softmax(dim=1))
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -80,7 +79,7 @@ def create_model(backbone_size):
     backbone_name = f"dinov2_{backbone_arch}"
 
     backbone_model = torch.hub.load(repo_or_dir="facebookresearch/dinov2", model=backbone_name)
-    backbone_model.eval()
+    # backbone_model.eval()
     # backbone_model.cuda()
     
     backbone_embeddings = {
@@ -114,7 +113,7 @@ def main():
     backbone_name = f"dinov2_{backbone_arch}"
 
     backbone_model = torch.hub.load(repo_or_dir="facebookresearch/dinov2", model=backbone_name)
-    backbone_model.eval()
+    # backbone_model.eval()
     # backbone_model.cuda()
 
     out_dim = 11 # number of classes for detection

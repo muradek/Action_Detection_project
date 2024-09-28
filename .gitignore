@@ -8,6 +8,7 @@ lib*
 *.mp4
 *.jpg
 *.csv
+*.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
