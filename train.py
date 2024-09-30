@@ -4,9 +4,10 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
 import configparser
+from datetime import datetime
 
-from model import Dinov2Tune
-from prepare_data2 import FramesDataset
+from models import RawDINOv2
+from datasets import FramesDataset
 
 import os
 
@@ -61,19 +62,15 @@ def main():
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
 
         # Instantiate the model, loss function, and optimizer
-        model = Dinov2Tune(backbone_size)
-        model = torch.compile(model)
-        print("compiled the model!")
-        
+        model = RawDINOv2(backbone_size)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
         train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs)
-        print("finished training. saving the model:")
-        backbone_path = "/home/muradek/project/Action_Detection_project/finetuned_backbone_2.pth"
-        torch.save(model.backbone_model.state_dict(), backbone_path) 
-        # need to make sure:
-        # 1. this is only the DINOv2 without the FC layers
-        # 2. the backbone was updated in backpropagation and its not the original backbone 
+        print("finished training")
+
+        current_time = datetime.now().strftime("%m-%d_%H:%M")
+        backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_models/finetuned_{current_time}.pth" 
+        torch.save(model.state_dict(), backbone_path) 
         print("model saved!")
 
 if __name__ == "__main__":
