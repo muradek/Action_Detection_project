@@ -51,14 +51,13 @@ def main():
         torch.cuda.empty_cache()
         os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 
-        # # Define the transform method:
         transform = transforms.Compose([
-        transforms.Resize((392, 798)),   # Resize image as it needs to be a mulitple of 14
+        transforms.Resize((392, 798)),
         transforms.ToTensor()])
 
-        # prepare_data2.py
         dataset = FramesDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
-        print(f"dataset has {dataset.__len__()} frames")
+        total_frames = dataset.__len__()
+        print(f"dataset has {total_frames} frames")
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
 
         # Instantiate the model, loss function, and optimizer
@@ -69,9 +68,10 @@ def main():
         print("finished training")
 
         current_time = datetime.now().strftime("%m-%d_%H:%M")
-        backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_models/finetuned_{current_time}.pth" 
+        model_name = f"finetuned_{backbone_size}_{total_frames}frames_{num_epochs}epochs_{current_time}"
+        backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_models/{model_name}.pth" 
         torch.save(model.state_dict(), backbone_path) 
-        print("model saved!")
+        print(f"{model_name} saved!")
 
 if __name__ == "__main__":
     main()
