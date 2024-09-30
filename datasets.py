@@ -13,7 +13,8 @@ from datetime import datetime
 
 def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
     video_name = video_path.rsplit('/', 1)[-1] # get the name of the video without path prefix
-
+    new_dir = dst_dir + "/" + video_name
+    os.makedirs(new_dir)
     # prepare frames:
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -26,7 +27,7 @@ def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
         if frame_count % sample_frequency == 0:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert frame from BGR to RGB (OpenCV uses BGR by default) is it needed in gray pic?
             pil_image = Image.fromarray(frame_rgb) # Convert to PIL Image
-            new_frame_path = os.path.join(dst_dir, video_name + str(frame_count) + ".jpg")
+            new_frame_path = os.path.join(new_dir, str(frame_count) + ".jpg")
             
             pil_image.save(new_frame_path)
             frames_paths.append(new_frame_path)
@@ -86,23 +87,16 @@ class FramesDataset(Dataset):
     def load_data_from_dir(self, src_dir, sample_frequency):
         # determine type of src_dir
         src_is_video = False
-        src_is_jpg = False
         for filename in os.listdir(src_dir):
-            if filename.endswith('.mp4'):
+            if os.path.isfile(filename) and filename.endswith('.mp4'):
                 src_is_video = True
-                break
-            elif filename.endswith('.jpg'):
-                src_is_jpg = True
                 break
 
         if src_is_video:
             frames_paths, labels_path = sample_all_videos(src_dir, sample_frequency)
-        elif src_is_jpg:
+        else:
             frames_paths = os.path.join(src_dir, "frames.csv")
             labels_path = os.path.join(src_dir, "labels.csv")
-        else:
-            print("ERROR: src_dir format")
-            exit(0)
 
         with open(frames_paths, mode='r') as frames_file:
             frames_reader = csv.reader(frames_file)
@@ -128,7 +122,6 @@ class FramesDataset(Dataset):
         label = torch.tensor(label, dtype=torch.float32)
         
         return frame, label
-
 
 def main():
     return 0
