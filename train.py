@@ -35,36 +35,46 @@ def main():
     config = configparser.ConfigParser()
     config.read('argsconfig.ini')
 
-    config_type = 'DEFAULT' # in ['DEFAULT',...]
-    src_dir = config[config_type]['src_dir']
-    sample_frequency = config[config_type].getint('sample_frequency')
-    backbone_size = config[config_type]['backbone_size']
-    batch_size = config[config_type].getint('batch_size')
-    lr = config[config_type].getfloat('lr')
-    num_epochs = config[config_type].getint('num_epochs')
+    for config_name in config.sections():
+        print(f"config name: {config_name}")
+        src_dir = config[config_name]['src_dir']
+        sample_frequency = config[config_name].getint('sample_frequency')
+        backbone_size = config[config_name]['backbone_size']
+        batch_size = config[config_name].getint('batch_size')
+        lr = config[config_name].getfloat('lr')
+        num_epochs = config[config_name].getint('num_epochs')
 
-    for key, value in config[config_type].items():
-        print(f'{key} = {value}')
-    
-    torch.cuda.empty_cache()
-    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
+        for key, value in config[config_name].items():
+            print(f'{key} = {value}')
+        
+        torch.cuda.empty_cache()
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 
-    # # Define the transform method:
-    transform = transforms.Compose([
-    transforms.Resize((392, 798)),   # Resize image as it needs to be a mulitple of 14
-    transforms.ToTensor()])
+        # # Define the transform method:
+        transform = transforms.Compose([
+        transforms.Resize((392, 798)),   # Resize image as it needs to be a mulitple of 14
+        transforms.ToTensor()])
 
-    # prepare_data2.py
-    dataset = SampledDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+        # prepare_data2.py
+        dataset = SampledDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
+        print(f"dataset has {dataset.__len__()} frames")
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
 
-    # Instantiate the model, loss function, and optimizer
-    model = Dinov2Tune(backbone_size)
-    
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs)
-    
+        # Instantiate the model, loss function, and optimizer
+        model = Dinov2Tune(backbone_size)
+        model = torch.compile(model)
+        print("compiled the model!")
+        
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters(), lr=lr)
+        train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs)
+        print("finished training. saving the model:")
+        backbone_path = "/home/muradek/project/Action_Detection_project/finetuned_backbone_2.pth"
+        torch.save(model.backbone_model.state_dict(), backbone_path) 
+        # need to make sure:
+        # 1. this is only the DINOv2 without the FC layers
+        # 2. the backbone was updated in backpropagation and its not the original backbone 
+        print("model saved!")
 
 if __name__ == "__main__":
     main()
@@ -89,5 +99,14 @@ print('model size: {:.3f}MB'.format(size_all_mb))
 src_dir = "/home/muradek/project/Action_Detection_project/small_set"
 sample_frequency = 100
 dataset = SampledDataset(src_dir, sample_frequency, transform)
+
+3. Freezing DINO
+for param in model.backbone_model.parameters():
+    param.requires_grad = False
+
+
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        print(name)
 
 """
