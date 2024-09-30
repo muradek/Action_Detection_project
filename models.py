@@ -12,6 +12,10 @@ import torch.nn.functional as F
 from PIL import Image
 from torch import nn, optim
 from torchvision import datasets, transforms
+from datetime import datetime
+from torch.utils.data import Dataset, DataLoader
+
+from datasets import FramesDataset
 
 
 # This function creates a DINO model with the specified backbone size
@@ -81,21 +85,36 @@ class finetunedDINOv2(nn.Module):
         return embedding
 
 def main():
-    model = finetunedDINOv2("base", "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_09-30_20:28.pth")
-    
-    frame_path = "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-09-28_19:03:47/CT54_22_06_08_tuft_control_trial0001.mp40.jpg"
+    backbone_size = "base"
+    state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_09-30_20:28.pth"
+    model = finetunedDINOv2(backbone_size, state_dict_path) 
+
     transform = transforms.Compose([
-        transforms.Resize((392, 798)),
-        transforms.ToTensor()])
+    transforms.Resize((392, 798)),   # Resize image as it needs to be a mulitple of 14
+    transforms.ToTensor()])
 
-    transformed_frame = transform(Image.open(frame_path))
-    final_img = torch.unsqueeze(transformed_frame, dim=0)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    final_img = final_img.to(device)
+    src_dir = "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-10-01_00:49:24"
+    sample_frequency = 100
+    dataset = FramesDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
+    print(f"dataset has {dataset.__len__()} frames")
+    batch_size = 8
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)  
 
-    with torch.inference_mode():
-        embedding = model(transformed_frame)
-    print(embedding.shape)
+    # TODO: adjust the code for embeddings per video!
+    # all_embeddings = []
+    # with torch.no_grad():
+    #     for frame, _ in dataloader:
+    #         frame = frame.cuda()
+    #         embedding = model(frame)
+    #         all_embeddings.append(embedding)
+
+    # all_embeddings = torch.cat(all_embeddings, dim=0)
+    # print(f"all_embeddings shape: {all_embeddings.shape}")
+    # print(all_embeddings[0])
+    
+    # current_time = datetime.now().strftime("%m-%d_%H:%M")
+    # path_for_embeddings = f"/home/muradek/project/Action_Detection_project/embeddings/{current_time}.pt"
+    # torch.save(all_embeddings, path_for_embeddings)
     return 0
     
 if __name__ == "__main__":
