@@ -2,15 +2,14 @@ import configparser
 
 config = configparser.ConfigParser()
 
-config['DEFAULT'] = {
-    'src_dir': "/home/muradek/project/Action_Detection_project/small_set",
-    'sample_frequency': 100,
+config[f'checking_save_options'] = {
+    'src_dir': "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-10-01_00:49:24",
+    'sample_frequency': 200,
     'backbone_size': "base", # in ["small", "base", "large", "giant"]
     'batch_size': 8,
-    'lr': 0.001,
-    'num_epochs': 3
+    'lr': 10**(-6),
+    'num_epochs': 1
 }
-
 
 with open('argsconfig.ini', 'w') as configfile:
   config.write(configfile)
