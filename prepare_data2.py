@@ -12,7 +12,7 @@ from datetime import datetime
 
 
 def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
-    video_name = video_path.rsplit('/', 1)[-1] #get the name of the video without path prefix
+    video_name = video_path.rsplit('/', 1)[-1] # get the name of the video without path prefix
 
     # prepare frames:
     cap = cv2.VideoCapture(video_path)
@@ -122,32 +122,16 @@ class SampledDataset(Dataset):
         frame = Image.open(frame_path)
 
         if self.transform:
-            frame = self.transform(frame)
-            # frame = torch.unsqueeze(frame, dim=0) # maybe should be out of if?
-
+            frame = self.transform(frame) # maybe transform all frames in the first load
+            
         label = self.labels_list[idx]
         label = torch.tensor(label, dtype=torch.float32)
-        # label = label.unsqueeze(0) #adding a dimention to fit torch.Size([1, 11]) maybe not needed
         
         return frame, label
 
 
 def main():
-    # # define the transform method:
-    # transform = transforms.Compose([
-    # transforms.Resize((392, 798)),   # Resize image as it needs to be a mulitple of 14
-    # transforms.ToTensor()])
-
-    # # Create dataset and dataloader
-    # dir_path = "/home/muradek/project/DINO_dir/small_set"
-    # dataset = SampledDataset(dir_path, 100, transform)
-    # dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=2)
-
-    src_dir = "/home/muradek/project/Action_Detection_project/small_set"
-    dst_dir = "/home/muradek/project/Action_Detection_project/new_format"
-    dataset = SampledDataset(src_dir, dst_dir, sample_frequency = 100)
+    return 0
 
 if __name__ == "__main__":
     main()
-    # output_path = 'frame_1.jpg'
-    # cv2.imwrite(output_path, frame)

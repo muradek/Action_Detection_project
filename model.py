@@ -48,102 +48,15 @@ class Dinov2Tune(nn.Module):
 
         self.labels_head = nn.Sequential(nn.Linear(embedding_dim, 256), nn.ReLU(), nn.Linear(256, out_dim), nn.Softmax(dim=1))
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.to(device) # maybe change per field?
+        self.to(device)
 
     def forward(self, frame):
         features = self.backbone_model(frame)
         labels_prob = self.labels_head(features)
-
-        # with torch.no_grad(): # this is a non differentiable operation
-        # max_index = torch.argmax(labels_prob)
-        # output = torch.zeros_like(labels_prob)
-        # output[0, max_index] = 1
-        # print(output)
         return labels_prob
 
-def create_model(backbone_size):
-    REPO_PATH = "/home/muradek/project/DINO_dir/dinov2" # Specify a local path to the repository (or use installed package instead)
-    sys.path.append(REPO_PATH)
-    
-    possible_sizes = ["small", "base", "large", "giant"]
-    if not(backbone_size in possible_sizes):
-        print("backbone size is invalid")
-
-    backbone_archs = {
-        "small": "vits14",
-        "base": "vitb14",
-        "large": "vitl14",
-        "giant": "vitg14",
-    }
-    backbone_arch = backbone_archs[backbone_size]
-    backbone_name = f"dinov2_{backbone_arch}"
-
-    backbone_model = torch.hub.load(repo_or_dir="facebookresearch/dinov2", model=backbone_name)
-    # backbone_model.eval()
-    # backbone_model.cuda()
-    
-    backbone_embeddings = {
-        "small": 384,
-        "base": 768,
-        "large": 1024,
-        "giant": 1536,
-    }
-
-    embedding_dim = backbone_embeddings[backbone_size]
-    out_dim = 11 # number of classes for detection
-    model = Dinov2Tune(backbone_model, embedding_dim, out_dim) # maybe pass reference of the model, or model args and consruct it in the __init__?
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device) 
-    
-    return model
-
 def main():
-    REPO_PATH = "/home/muradek/project/Action_Detection_project" # Specify a local path to the repository (or use installed package instead)
-    sys.path.append(REPO_PATH)
+    return 0
     
-    BACKBONE_SIZE = "large" # in ("small", "base", "large" or "giant")
-
-    backbone_archs = {
-        "small": "vits14",
-        "base": "vitb14",
-        "large": "vitl14",
-        "giant": "vitg14",
-    }
-    backbone_arch = backbone_archs[BACKBONE_SIZE]
-    backbone_name = f"dinov2_{backbone_arch}"
-
-    backbone_model = torch.hub.load(repo_or_dir="facebookresearch/dinov2", model=backbone_name)
-    # backbone_model.eval()
-    # backbone_model.cuda()
-
-    out_dim = 11 # number of classes for detection
-    model = Dinov2Tune(backbone_model, out_dim) # maybe pass reference of the model, or model args and consruct it in the __init__?
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
-
-    # load frame for inference
-    frame_path = "/home/muradek/project/DINO_dir/dino/frames/frame-0012.jpg"
-    frame = Image.open(frame_path) 
-
-    # Todo: this should be changed to a transform module!!!
-    new_height = (frame.height // 14) * 14  # Round down to the nearest multiple of 14
-    new_width = (frame.width // 14) * 14
-    resized_image = frame.resize((new_width, new_height))
-    transform = transforms.Compose([transforms.ToTensor(),]) # Converts the image to a tensor
-    # Apply the transform to the image
-    image_tensor = transform(resized_image)
-    final_img = torch.unsqueeze(image_tensor, dim=0)
-    final_img = final_img.to(device)
-
-    #inference
-    # print("img device is: ", final_img.device)
-    # print("model device is: ", model.device)
-    # print("model device is: ", model.backbone_model.device)
-    # print("model device is: ", model.labels_head.device)
-
-    with torch.inference_mode():
-        output = model(final_img) 
-    print(output)
-
 if __name__ == "__main__":
     main()
