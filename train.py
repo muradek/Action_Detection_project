@@ -6,7 +6,7 @@ import torch.optim as optim
 import configparser
 
 from model import Dinov2Tune
-from prepare_data2 import SampledDataset
+from prepare_data2 import FramesDataset
 
 import os
 
@@ -56,7 +56,7 @@ def main():
         transforms.ToTensor()])
 
         # prepare_data2.py
-        dataset = SampledDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
+        dataset = FramesDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
         print(f"dataset has {dataset.__len__()} frames")
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
 
@@ -98,7 +98,7 @@ print('model size: {:.3f}MB'.format(size_all_mb))
 2. pipelines (prepare_data.py)
 src_dir = "/home/muradek/project/Action_Detection_project/small_set"
 sample_frequency = 100
-dataset = SampledDataset(src_dir, sample_frequency, transform)
+dataset = FramesDataset(src_dir, sample_frequency, transform)
 
 3. Freezing DINO
 for param in model.backbone_model.parameters():

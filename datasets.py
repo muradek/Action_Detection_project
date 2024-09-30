@@ -76,7 +76,7 @@ def sample_all_videos(src_dir, sample_frequency):
                 labels_writer.writerow(label)
     return frames_csv_path, labels_csv_path
 
-class SampledDataset(Dataset):
+class FramesDataset(Dataset):
     def __init__(self, src_dir, sample_frequency=100, transform=None):
         self.frames_list = []
         self.labels_list = []
