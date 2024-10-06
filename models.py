@@ -86,7 +86,7 @@ class finetunedDINOv2(nn.Module):
 
 def main():
     backbone_size = "base"
-    state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_09-30_20:28.pth"
+    state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_base_18000frames_20epochs.pth"
     model = finetunedDINOv2(backbone_size, state_dict_path) 
 
     transform = transforms.Compose([
@@ -100,21 +100,33 @@ def main():
     batch_size = 8
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)  
 
-    # TODO: adjust the code for embeddings per video!
-    # all_embeddings = []
-    # with torch.no_grad():
-    #     for frame, _ in dataloader:
-    #         frame = frame.cuda()
-    #         embedding = model(frame)
-    #         all_embeddings.append(embedding)
+    all_embeddings = []
+    frame_paths = []
+    with torch.no_grad():
+        for frame, _, frame_path_batch in dataloader:
+            frame = frame.cuda()
+            embedding = model(frame)
+            all_embeddings.append(embedding)
+            frame_paths.extend(frame_path_batch)
 
-    # all_embeddings = torch.cat(all_embeddings, dim=0)
-    # print(f"all_embeddings shape: {all_embeddings.shape}")
-    # print(all_embeddings[0])
+    all_embeddings = torch.cat(all_embeddings, dim=0)
     
-    # current_time = datetime.now().strftime("%m-%d_%H:%M")
-    # path_for_embeddings = f"/home/muradek/project/Action_Detection_project/embeddings/{current_time}.pt"
-    # torch.save(all_embeddings, path_for_embeddings)
+    current_time = datetime.now().strftime("%m-%d_%H:%M")
+    root_dir = f"/home/muradek/project/Action_Detection_project/embeddings/{current_time}"
+    os.makedirs(root_dir)
+    
+    for frame_path, embedding in zip(frame_paths, all_embeddings):
+        video_name = frame_path.split(".mp4")[0]
+        video_name = video_name.split("/")[-1]
+        frame_pt = f"{root_dir}/{video_name}.pt"
+        # create pt file for the video it does not exist, than append to it the embedding
+        if not os.path.exists(frame_pt):
+            torch.save(embedding, frame_pt)
+        else:
+            existing_embedding = torch.load(frame_pt)
+            new_embedding = torch.cat([existing_embedding, embedding], dim=0)
+            torch.save(new_embedding, frame_pt)
+        
     return 0
     
 if __name__ == "__main__":
