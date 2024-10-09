@@ -148,8 +148,9 @@ class EmbeddingsDataset(Dataset):
 
         # load video names
         for filename in os.listdir(src_dir):
-            if os.path.isfile(filename) and filename.endswith('.pt'):
+            if filename.endswith('.pt'):
                 self.video_names.append(filename)
+        self.video_names.sort()
 
         # load video length
         first_video_path = os.path.join(src_dir, self.video_names[0])
@@ -166,25 +167,24 @@ class EmbeddingsDataset(Dataset):
         # load embeddings
         curr_frame_idx = idx % self.video_length
         lower_bound = max(0, curr_frame_idx - self.one_side_context_frames)
-        upper_bound = min(self.video_length, curr_frame_idx + self.one_side_context_frames)
+        upper_bound = min(self.video_length, curr_frame_idx + self.one_side_context_frames + 1)
         embeddings = torch.load(curr_video_path)[lower_bound:upper_bound]
 
         # padding if needed
         prefix_padding_size = max(0, self.one_side_context_frames - curr_frame_idx)
-        suffix_padding_size = max(0, self.one_side_context_frames - (self.video_length - curr_frame_idx))
+        suffix_padding_size = max(0, self.one_side_context_frames - (self.video_length - curr_frame_idx) + 1)
         prefix_padding = torch.zeros(prefix_padding_size, embeddings.size()[1])
         suffix_padding = torch.zeros(suffix_padding_size, embeddings.size()[1])
         prefix_padding = prefix_padding.cuda()
         suffix_padding = suffix_padding.cuda()
         embeddings = torch.cat((prefix_padding, embeddings, suffix_padding), 0)
-        
+        embeddings = embeddings.cuda()
+
         label = self.labels_list[idx]
-        print("labels type: ", type(label))
-        print("labels shape: ", label.shape)
-        print("labels: ", label)
-        # label = torch.tensor(label, dtype=torch.float32)
-        
-        return embedding, label
+        ints_label = [eval(i) for i in label]
+        tensor_label = torch.tensor(ints_label, dtype=torch.float32)
+        tensor_label = tensor_label.cuda()
+        return embeddings, tensor_label
 
 def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency):
     model = finetunedDINOv2(backbone_size, state_dict_path) 
@@ -232,12 +232,18 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_f
     return root_dir
 
 def main():
-    backbone_size = "base"
-    state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_base_18000frames_20epochs.pth"
-    src_dir = "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-10-01_00:49:24"
-    dst_dir = "/home/muradek/project/Action_Detection_project/embeddings"
-    root_dir = create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency=100)
-    print(f"root directory is {root_dir}")
+    # save local embeddings
+    # backbone_size = "base"
+    # state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_base_18000frames_20epochs.pth"
+    # src_dir = "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-10-01_00:49:24"
+    # dst_dir = "/home/muradek/project/Action_Detection_project/embeddings"
+    # root_dir = create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency=100)
+    # print(f"root directory is {root_dir}")
+
+    # load embeddings to dataset
+    root_dir = "/home/muradek/project/Action_Detection_project/embeddings/10-09_14:37"
+    embeddings_dataset = EmbeddingsDataset(root_dir, sequence_length=21)
+
     return 0
 
 if __name__ == "__main__":
