@@ -82,6 +82,30 @@ class finetunedDINOv2(nn.Module):
         embedding = self.backbone_model(frame)
         return embedding
 
+class LSTM(nn.Module):
+    def __init__(self, embedding_dim, hidden_size=256, num_layers=2, sequence_length=21, num_classes=11):
+        super(LSTM, self).__init__()
+        self.sequence_length = sequence_length
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers, batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(2*hidden_size, hidden_size, num_classes)
+        self.softmax = nn.Softmax(dim=1)
+        
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.to(device)
+
+    def forward(self, x):
+        # num layers * num directions(2=bidirectional), batch, hidden size
+        h0 = torch.zeros(self.num_layers*2, x.size(0), self.hidden_size).to(x.device)
+        c0 = torch.zeros(self.num_layers*2, x.size(0), self.hidden_size).to(x.device)
+        
+        out, _ = self.lstm(x, (h0, c0))
+        mid_idx = self.sequence_length//2
+        out = self.fc(out[:, mid_idx, :])
+        out = self.softmax(out)
+        return out
+
 def main():
     return 0
     

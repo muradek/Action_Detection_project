@@ -5,17 +5,17 @@ from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
 import configparser
 from datetime import datetime
-
-from models import RawDINOv2
-from datasets import FramesDataset
-
 import os
+import torch.multiprocessing as mp
+
+from models import *
+from datasets import *
 
 
 def train_model(model, criterion, optimizer, dataloader, num_epochs):
     for epoch in range(num_epochs):  
         losses = []
-        for frame, label, _ in dataloader:
+        for frame, label in dataloader:
             frame, label = frame.cuda(), label.cuda()
             frame.requires_grad = True # is this the right place to put this?
             label.requires_grad = True
@@ -73,8 +73,33 @@ def train_dino_model(config_file):
         print(f"{model_name} saved!")
         return model
 
+def train_lstm_model(backbone_size="base"):
+    backbone_embeddings = {
+        "small": 384,
+        "base": 768,
+        "large": 1024,
+        "giant": 1536,
+    }
+
+    embedding_dim = backbone_embeddings[backbone_size]
+    model = LSTM(embedding_dim=embedding_dim, hidden_size=512, num_layers=3, sequence_length=21, num_classes=11)
+    
+    src_dir = "/home/muradek/project/Action_Detection_project/embeddings/10-09_14:37"
+    sequence_length = 21
+    dataset = EmbeddingsDataset(src_dir, sequence_length)
+    lr = 0.001
+    num_epochs = 20
+    dataloader = DataLoader(dataset, batch_size=24, shuffle=False, num_workers=0)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=lr)
+    # mp.set_start_method('spawn', force=True)
+    train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs)
+
+
 def main():
-    model = train_dino_model("argsconfig.ini")
+    # model = train_dino_model("argsconfig.ini")
+    model = train_lstm_model()
+    print("finished training")
 
 if __name__ == "__main__":
     main()

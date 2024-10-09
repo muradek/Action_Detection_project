@@ -129,7 +129,7 @@ class FramesDataset(Dataset):
         return frame, label, frame_path
 
 class EmbeddingsDataset(Dataset):
-    def __init__(self, src_dir, sequence_length, transform=None):
+    def __init__(self, src_dir, sequence_length):
         self.src_dir = src_dir
         self.sequence_length = sequence_length
         self.one_side_context_frames = (sequence_length - 1) // 2
@@ -186,6 +186,7 @@ class EmbeddingsDataset(Dataset):
         tensor_label = tensor_label.cuda()
         return embeddings, tensor_label
 
+# create embeddings from a video/frames and save them in a local directory
 def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency):
     model = finetunedDINOv2(backbone_size, state_dict_path) 
     transform = transforms.Compose([
