@@ -13,10 +13,9 @@ import os
 
 
 def train_model(model, criterion, optimizer, dataloader, num_epochs):
-    for epoch in range(num_epochs):  # Number of epochs
-        # print(torch.cuda.memory_summary())
+    for epoch in range(num_epochs):  
         losses = []
-        for frame, label in dataloader:
+        for frame, label, _ in dataloader:
             frame, label = frame.cuda(), label.cuda()
             frame.requires_grad = True # is this the right place to put this?
             label.requires_grad = True
@@ -32,9 +31,9 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs):
         avg_loss = sum(losses)/len(losses)
         print(f"Epoch [{epoch + 1}/{num_epochs}], Avg Loss: {avg_loss:.8f}")
 
-def main():
+def train_dino_model(config_file):
     config = configparser.ConfigParser()
-    config.read('argsconfig.ini')
+    config.read(config_file)
 
     for config_name in config.sections():
         print(f"config name: {config_name}")
@@ -72,6 +71,10 @@ def main():
         backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_models/{model_name}.pth" 
         torch.save(model.state_dict(), backbone_path) 
         print(f"{model_name} saved!")
+        return model
+
+def main():
+    model = train_dino_model("argsconfig.ini")
 
 if __name__ == "__main__":
     main()

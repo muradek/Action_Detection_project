@@ -4,11 +4,13 @@ import pandas as pd
 import numpy as np
 import os
 import csv
-
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from datetime import datetime
+import shutil
+
+from models import finetunedDINOv2
 
 
 def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
@@ -184,7 +186,58 @@ class EmbeddingsDataset(Dataset):
         
         return embedding, label
 
+def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency):
+    model = finetunedDINOv2(backbone_size, state_dict_path) 
+    transform = transforms.Compose([
+    transforms.Resize((392, 798)),   # Resize image as it needs to be a mulitple of 14
+    transforms.ToTensor()])
+
+    dataset = FramesDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
+    print(f"dataset has {dataset.__len__()} frames")
+    dataloader = DataLoader(dataset, batch_size=8, shuffle=False, num_workers=2)  
+
+    current_time = datetime.now().strftime("%m-%d_%H:%M")
+    root_dir = f"{dst_dir}/{current_time}"
+    os.makedirs(root_dir)
+
+    # copy the labels csv file to the root directory
+    shutil.copy(dataset.labels_csv_path, root_dir)
+
+    # save the embeddings in the root directory
+    all_embeddings = []
+    frame_paths = []
+    with torch.no_grad():
+        for frame_batch, _, frame_path_batch in dataloader:
+            frame_batch = frame_batch.cuda()
+            embeddings_batch = model(frame_batch)
+            all_embeddings.append(embeddings_batch)
+            frame_paths.extend(frame_path_batch)
+    all_embeddings = torch.cat(all_embeddings, dim=0)
+    split_embeddings = torch.split(all_embeddings, 24)
+
+    # create a list of the video names
+    video_names = []
+    for frame_path in frame_paths:
+        video_name = frame_path.split(".mp4")[0]
+        video_name = video_name.split("/")[-1]
+        if video_name not in video_names:
+            video_names.append(video_name)
+
+    frames_per_video = int(dataset.__len__() / len(video_names))
+    split_embeddings = torch.split(all_embeddings, frames_per_video)
+    for video_name, embedding in zip(video_names, split_embeddings):
+        video_pt = f"{root_dir}/{video_name}.pt"
+        torch.save(embedding, video_pt)
+        
+    return root_dir
+
 def main():
+    backbone_size = "base"
+    state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_base_18000frames_20epochs.pth"
+    src_dir = "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-10-01_00:49:24"
+    dst_dir = "/home/muradek/project/Action_Detection_project/embeddings"
+    root_dir = create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency=100)
+    print(f"root directory is {root_dir}")
     return 0
 
 if __name__ == "__main__":
