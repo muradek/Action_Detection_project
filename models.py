@@ -4,6 +4,7 @@ import random
 import zipfile
 from copy import deepcopy
 from pathlib import Path
+import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -100,32 +101,44 @@ def main():
     batch_size = 8
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)  
 
-    all_embeddings = []
-    frame_paths = []
-    with torch.no_grad():
-        for frame, _, frame_path_batch in dataloader:
-            frame = frame.cuda()
-            embedding = model(frame)
-            all_embeddings.append(embedding)
-            frame_paths.extend(frame_path_batch)
-
-    all_embeddings = torch.cat(all_embeddings, dim=0)
-    
     current_time = datetime.now().strftime("%m-%d_%H:%M")
     root_dir = f"/home/muradek/project/Action_Detection_project/embeddings/{current_time}"
     os.makedirs(root_dir)
-    
-    for frame_path, embedding in zip(frame_paths, all_embeddings):
+
+    # copy the labels csv file to the root directory
+    shutil.copy(dataset.labels_csv_path, root_dir)
+
+    # save the embeddings in the root directory
+    all_embeddings = []
+    frame_paths = []
+    with torch.no_grad():
+        for frame_batch, _, frame_path_batch in dataloader:
+            frame_batch = frame_batch.cuda()
+            embeddings_batch = model(frame_batch)
+            print(f"embedding batch shape is {embeddings_batch.shape}")
+            all_embeddings.append(embeddings_batch)
+            print("all_embeddings shape is ", len(all_embeddings))
+            frame_paths.extend(frame_path_batch)
+
+    all_embeddings = torch.cat(all_embeddings, dim=0)
+    print(f"all_embeddings after cat shape is {all_embeddings.shape}")
+    split_embeddings = torch.split(all_embeddings, 24)
+
+    # create a list of the video names
+    video_names = []
+    for frame_path in frame_paths:
         video_name = frame_path.split(".mp4")[0]
         video_name = video_name.split("/")[-1]
-        frame_pt = f"{root_dir}/{video_name}.pt"
-        # create pt file for the video it does not exist, than append to it the embedding
-        if not os.path.exists(frame_pt):
-            torch.save(embedding, frame_pt)
-        else:
-            existing_embedding = torch.load(frame_pt)
-            new_embedding = torch.cat([existing_embedding, embedding], dim=0)
-            torch.save(new_embedding, frame_pt)
+        if video_name not in video_names:
+            video_names.append(video_name)
+
+    print("video names are ", video_names)
+    frames_per_video = int(dataset.__len__() / len(video_names))
+    split_embeddings = torch.split(all_embeddings, frames_per_video)
+    for video_name, embedding in zip(video_names, split_embeddings):
+        video_pt = f"{root_dir}/{video_name}.pt"
+        torch.save(embedding, video_pt)
+        print("final embedding shape is ", embedding.shape)
         
     return 0
     

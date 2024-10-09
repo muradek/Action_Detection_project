@@ -81,6 +81,7 @@ class FramesDataset(Dataset):
     def __init__(self, src_dir, sample_frequency=100, transform=None):
         self.frames_list = []
         self.labels_list = []
+        self.labels_csv_path = None
         self.load_data_from_dir(src_dir, sample_frequency)
         self.transform = transform
 
@@ -97,6 +98,8 @@ class FramesDataset(Dataset):
         else:
             frames_paths = os.path.join(src_dir, "frames.csv")
             labels_path = os.path.join(src_dir, "labels.csv")
+
+        self.labels_csv_path = labels_path
 
         with open(frames_paths, mode='r') as frames_file:
             frames_reader = csv.reader(frames_file)
@@ -121,7 +124,65 @@ class FramesDataset(Dataset):
         label = self.labels_list[idx]
         label = torch.tensor(label, dtype=torch.float32)
         
-        return frame, label
+        return frame, label, frame_path
+
+class EmbeddingsDataset(Dataset):
+    def __init__(self, src_dir, sequence_length, transform=None):
+        self.src_dir = src_dir
+        self.sequence_length = sequence_length
+        self.one_side_context_frames = (sequence_length - 1) // 2
+        self.labels_list = []
+        self.video_names = []
+        self.video_length = 0
+        self.load_data_from_dir(src_dir)
+
+    def load_data_from_dir(self, src_dir):
+        # load labels
+        labels_path = os.path.join(src_dir, "labels.csv")
+        with open(labels_path, mode='r') as labels_file:
+            labels_reader = csv.reader(labels_file)
+            for label in labels_reader:
+                self.labels_list.append(label)
+
+        # load video names
+        for filename in os.listdir(src_dir):
+            if os.path.isfile(filename) and filename.endswith('.pt'):
+                self.video_names.append(filename)
+
+        # load video length
+        first_video_path = os.path.join(src_dir, self.video_names[0])
+        first_video = torch.load(first_video_path)
+        self.video_length = len(first_video)
+
+    def __len__(self):
+        return len(self.labels_list)
+
+    def __getitem__(self, idx):
+        curr_video_idx = idx // self.video_length
+        curr_video_path = os.path.join(self.src_dir, self.video_names[curr_video_idx])
+
+        # load embeddings
+        curr_frame_idx = idx % self.video_length
+        lower_bound = max(0, curr_frame_idx - self.one_side_context_frames)
+        upper_bound = min(self.video_length, curr_frame_idx + self.one_side_context_frames)
+        embeddings = torch.load(curr_video_path)[lower_bound:upper_bound]
+
+        # padding if needed
+        prefix_padding_size = max(0, self.one_side_context_frames - curr_frame_idx)
+        suffix_padding_size = max(0, self.one_side_context_frames - (self.video_length - curr_frame_idx))
+        prefix_padding = torch.zeros(prefix_padding_size, embeddings.size()[1])
+        suffix_padding = torch.zeros(suffix_padding_size, embeddings.size()[1])
+        prefix_padding = prefix_padding.cuda()
+        suffix_padding = suffix_padding.cuda()
+        embeddings = torch.cat((prefix_padding, embeddings, suffix_padding), 0)
+        
+        label = self.labels_list[idx]
+        print("labels type: ", type(label))
+        print("labels shape: ", label.shape)
+        print("labels: ", label)
+        # label = torch.tensor(label, dtype=torch.float32)
+        
+        return embedding, label
 
 def main():
     return 0
