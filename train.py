@@ -17,12 +17,12 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs):
         losses = []
         for frame, label in dataloader:
             frame, label = frame.cuda(), label.cuda()
-            frame.requires_grad = True # is this the right place to put this?
+            frame.requires_grad = True
             label.requires_grad = True
 
             optimizer.zero_grad()
             output = model(frame)
-
+            
             loss = criterion(output, label)
             losses.append(loss.item())
             loss.backward()
@@ -73,7 +73,7 @@ def train_dino_model(config_file):
         print(f"{model_name} saved!")
         return model
 
-def train_lstm_model(backbone_size="base"):
+def train_lstm_model(backbone_size, src_dir, sequence_length):
     backbone_embeddings = {
         "small": 384,
         "base": 768,
@@ -84,8 +84,6 @@ def train_lstm_model(backbone_size="base"):
     embedding_dim = backbone_embeddings[backbone_size]
     model = LSTM(embedding_dim=embedding_dim, hidden_size=512, num_layers=3, sequence_length=21, num_classes=11)
     
-    src_dir = "/home/muradek/project/Action_Detection_project/embeddings/10-09_14:37"
-    sequence_length = 21
     dataset = EmbeddingsDataset(src_dir, sequence_length)
     lr = 0.001
     num_epochs = 20
@@ -95,43 +93,21 @@ def train_lstm_model(backbone_size="base"):
     # mp.set_start_method('spawn', force=True)
     train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs)
 
+    print("finished training")
+
+    current_time = datetime.now().strftime("%m-%d_%H:%M")
+    total_embeddings = dataset.__len__()
+    model_name = f"LSTM_{backbone_size}_{total_embeddings}embeddings_{num_epochs}epochs_{current_time}"
+    backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_LSTM_models/{model_name}.pth" 
+    torch.save(model.state_dict(), backbone_path) 
+    print(f"{model_name} saved!")
+    return model
+
 
 def main():
     # model = train_dino_model("argsconfig.ini")
-    model = train_lstm_model()
-    print("finished training")
+    # model = train_lstm_model()
+    print("currently not training any models")
 
 if __name__ == "__main__":
     main()
-
-"""
-code snippets
-1. Memory management
-print(torch.cuda.memory_summary())
-
-param_size = 0
-for param in model.parameters():
-    param_size += param.nelement() * param.element_size()
-buffer_size = 0
-for buffer in model.buffers():
-    buffer_size += buffer.nelement() * buffer.element_size()
-
-size_all_mb = (param_size + buffer_size) / 1024**2
-print('model size: {:.3f}MB'.format(size_all_mb))
-
-
-2. pipelines (prepare_data.py)
-src_dir = "/home/muradek/project/Action_Detection_project/small_set"
-sample_frequency = 100
-dataset = FramesDataset(src_dir, sample_frequency, transform)
-
-3. Freezing DINO
-for param in model.backbone_model.parameters():
-    param.requires_grad = False
-
-
-for name, param in model.named_parameters():
-    if param.requires_grad:
-        print(name)
-
-"""
