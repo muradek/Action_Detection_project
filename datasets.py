@@ -91,7 +91,7 @@ class FramesDataset(Dataset):
         # determine type of src_dir
         src_is_video = False
         for filename in os.listdir(src_dir):
-            if os.path.isfile(filename) and filename.endswith('.mp4'):
+            if (not os.path.isdir(os.path.join(src_dir, filename))) and filename.endswith('.mp4'):
                 src_is_video = True
                 break
 
@@ -175,30 +175,31 @@ class EmbeddingsDataset(Dataset):
         suffix_padding_size = max(0, self.one_side_context_frames - (self.video_length - curr_frame_idx) + 1)
         prefix_padding = torch.zeros(prefix_padding_size, embeddings.size()[1])
         suffix_padding = torch.zeros(suffix_padding_size, embeddings.size()[1])
-        prefix_padding = prefix_padding.cuda()
-        suffix_padding = suffix_padding.cuda()
         embeddings = torch.cat((prefix_padding, embeddings, suffix_padding), 0)
-        embeddings = embeddings.cuda()
 
         label = self.labels_list[idx]
         ints_label = [eval(i) for i in label]
         tensor_label = torch.tensor(ints_label, dtype=torch.float32)
-        tensor_label = tensor_label.cuda()
         return embeddings, tensor_label
 
 # create embeddings from a video/frames and save them in a local directory
 def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency):
     model = finetunedDINOv2(backbone_size, state_dict_path) 
+    print("model loaded")
     transform = transforms.Compose([
     transforms.Resize((392, 798)),   # Resize image as it needs to be a mulitple of 14
     transforms.ToTensor()])
+    # print("memory after model: ", torch.cuda.memory_allocated() / (1024**3))
 
     dataset = FramesDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
-    print(f"dataset has {dataset.__len__()} frames")
-    dataloader = DataLoader(dataset, batch_size=8, shuffle=False, num_workers=2)  
+    # print("memory after dataset: ", torch.cuda.memory_allocated() / (1024**3))
 
+    print(f"datast loaded with {dataset.__len__()} frames")
+    dataloader = DataLoader(dataset, batch_size=24, shuffle=False, num_workers=2)
+    # print("memory after dataloader: ", torch.cuda.memory_allocated() / (1024**3)) 
+    print("dataloader loaded")
     current_time = datetime.now().strftime("%m-%d_%H:%M")
-    root_dir = f"{dst_dir}/{current_time}"
+    root_dir = f"{dst_dir}/{current_time}_{dataset.__len__()}embeddings"
     os.makedirs(root_dir)
 
     # copy the labels csv file to the root directory
@@ -208,13 +209,18 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_f
     all_embeddings = []
     frame_paths = []
     with torch.no_grad():
+        i = 1
         for frame_batch, _, frame_path_batch in dataloader:
             frame_batch = frame_batch.cuda()
-            embeddings_batch = model(frame_batch)
+            # print("after frame to cuda: ", torch.cuda.memory_allocated() / (1024**3))
+            embeddings_batch = model(frame_batch).cpu()
+            # print("after model(frame): ", torch.cuda.memory_allocated() / (1024**3))
             all_embeddings.append(embeddings_batch)
             frame_paths.extend(frame_path_batch)
+            # torch.cuda.empty_cache()
+            print(f"batch {i} done")
+            i += 1
     all_embeddings = torch.cat(all_embeddings, dim=0)
-    split_embeddings = torch.split(all_embeddings, 24)
 
     # create a list of the video names
     video_names = []
