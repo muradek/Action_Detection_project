@@ -89,7 +89,7 @@ class LSTM(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers, batch_first=True, bidirectional=True)
-        self.fc = nn.Linear(2*hidden_size, hidden_size, num_classes)
+        self.fc = nn.Linear(2*hidden_size, num_classes)
         self.softmax = nn.Softmax(dim=1)
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
