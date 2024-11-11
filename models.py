@@ -85,6 +85,9 @@ class finetunedDINOv2(nn.Module):
 class LSTM(nn.Module):
     def __init__(self, embedding_dim, hidden_size=256, num_layers=2, sequence_length=21, num_classes=11):
         super(LSTM, self).__init__()
+        print("hidden size: ", hidden_size)
+        print("num layers: ", num_layers)
+        print("sequence length: ", sequence_length)
         self.sequence_length = sequence_length
         self.hidden_size = hidden_size
         self.num_layers = num_layers

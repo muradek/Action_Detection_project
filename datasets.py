@@ -130,6 +130,8 @@ class FramesDataset(Dataset):
 
 class EmbeddingsDataset(Dataset):
     def __init__(self, src_dir, sequence_length):
+        current_time = datetime.now().strftime("%m-%d_%H:%M")
+        print("starting dataset", current_time)
         self.src_dir = src_dir
         self.sequence_length = sequence_length
         self.one_side_context_frames = (sequence_length - 1) // 2
@@ -137,6 +139,8 @@ class EmbeddingsDataset(Dataset):
         self.video_names = []
         self.video_length = 0
         self.load_data_from_dir(src_dir)
+        current_time = datetime.now().strftime("%m-%d_%H:%M")
+        print("Finished dataset", current_time)
 
     def load_data_from_dir(self, src_dir):
         # load labels

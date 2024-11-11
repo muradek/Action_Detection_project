@@ -12,17 +12,20 @@ from models import *
 from datasets import *
 
 
-def train_model(model, criterion, optimizer, dataloader, num_epochs):
+def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
+    current_time = datetime.now().strftime("%m-%d_%H:%M")
+    print("starting training", current_time)
+    prev_loss = 0
     for epoch in range(num_epochs):  
         losses = []
-        for frame, label in dataloader:
+        for frame, label, _ in dataloader:
             frame, label = frame.cuda(), label.cuda()
             frame.requires_grad = True
             label.requires_grad = True
 
             optimizer.zero_grad()
             output = model(frame)
-            
+
             loss = criterion(output, label)
             losses.append(loss.item())
             loss.backward()
@@ -30,6 +33,13 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs):
 
         avg_loss = sum(losses)/len(losses)
         print(f"Epoch [{epoch + 1}/{num_epochs}], Avg Loss: {avg_loss:.8f}")
+        if abs(prev_loss - avg_loss) < epsilon:
+            print(f"Converged at epoch {epoch + 1}")
+            break
+        prev_loss = avg_loss
+
+    current_time = datetime.now().strftime("%m-%d_%H:%M")
+    print("finished training", current_time)
 
 def train_dino_model(config_file):
     config = configparser.ConfigParser()
@@ -43,6 +53,7 @@ def train_dino_model(config_file):
         batch_size = config[config_name].getint('batch_size')
         lr = config[config_name].getfloat('lr')
         num_epochs = config[config_name].getint('num_epochs')
+        epsilon = config[config_name].getfloat('epsilon')
 
         for key, value in config[config_name].items():
             print(f'{key} = {value}')
@@ -63,17 +74,18 @@ def train_dino_model(config_file):
         model = RawDINOv2(backbone_size)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
-        train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs)
+        train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs, epsilon)
         print("finished training")
 
         current_time = datetime.now().strftime("%m-%d_%H:%M")
         model_name = f"finetuned_{backbone_size}_{total_frames}frames_{num_epochs}epochs_{current_time}"
-        backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_models/{model_name}.pth" 
+        backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_DINO_models/{model_name}.pth" 
         torch.save(model.state_dict(), backbone_path) 
         print(f"{model_name} saved!")
         return model
 
-def train_lstm_model(backbone_size, src_dir, sequence_length):
+def train_lstm_model(backbone_size, src_dir, sequence_length, epsilon):
+    print("training LSTM model")
     backbone_embeddings = {
         "small": 384,
         "base": 768,
@@ -82,11 +94,12 @@ def train_lstm_model(backbone_size, src_dir, sequence_length):
     }
 
     embedding_dim = backbone_embeddings[backbone_size]
-    model = LSTM(embedding_dim=embedding_dim, hidden_size=512, num_layers=3, sequence_length=21, num_classes=11)
+    model = LSTM(embedding_dim=embedding_dim, hidden_size=512, num_layers=3, sequence_length=sequence_length, num_classes=11)
     
     dataset = EmbeddingsDataset(src_dir, sequence_length)
-    lr = 0.001
-    num_epochs = 20
+    lr = 0.00001
+    print("lr: ", lr)
+    num_epochs = 15
     dataloader = DataLoader(dataset, batch_size=24, shuffle=False, num_workers=0)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
