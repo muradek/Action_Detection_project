@@ -11,6 +11,7 @@ lib*
 *.ini
 *.pth
 *.pt
+hist_dir/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

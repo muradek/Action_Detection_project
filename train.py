@@ -18,7 +18,7 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
     prev_loss = 0
     for epoch in range(num_epochs):  
         losses = []
-        for frame, label, _ in dataloader:
+        for frame, label in dataloader:
             frame, label = frame.cuda(), label.cuda()
             frame.requires_grad = True
             label.requires_grad = True
@@ -48,7 +48,7 @@ def train_dino_model(config_file):
     for config_name in config.sections():
         print(f"config name: {config_name}")
         src_dir = config[config_name]['src_dir']
-        sample_frequency = config[config_name].getint('sample_frequency')
+        crop_point = config[config_name].getint('crop_point')
         backbone_size = config[config_name]['backbone_size']
         batch_size = config[config_name].getint('batch_size')
         lr = config[config_name].getfloat('lr')
@@ -65,7 +65,7 @@ def train_dino_model(config_file):
         transforms.Resize((392, 798)),
         transforms.ToTensor()])
 
-        dataset = FramesDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
+        dataset = FramesDataset(src_dir, crop_point=crop_point, transform=transform)
         total_frames = dataset.__len__()
         print(f"dataset has {total_frames} frames")
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
@@ -74,7 +74,7 @@ def train_dino_model(config_file):
         model = RawDINOv2(backbone_size)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
-        train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs, epsilon)
+        train_model(model, criterion, optimizer, dataloader, num_epochs=num_epochs, epsilon=epsilon)
         print("finished training")
 
         current_time = datetime.now().strftime("%m-%d_%H:%M")
@@ -99,12 +99,12 @@ def train_lstm_model(backbone_size, src_dir, sequence_length, epsilon):
     dataset = EmbeddingsDataset(src_dir, sequence_length)
     lr = 0.00001
     print("lr: ", lr)
-    num_epochs = 15
+    num_epochs = 10
     dataloader = DataLoader(dataset, batch_size=24, shuffle=False, num_workers=0)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
     # mp.set_start_method('spawn', force=True)
-    train_model(model, criterion, optimizer, dataloader, num_epochs = num_epochs)
+    train_model(model, criterion, optimizer, dataloader, num_epochs=num_epochs, epsilon=epsilon)
 
     print("finished training")
 

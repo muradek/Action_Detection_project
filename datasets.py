@@ -13,7 +13,7 @@ import shutil
 from models import finetunedDINOv2
 
 
-def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
+def sample_one_video(video_path, labels_csv_path, dst_dir, crop_point):
     video_name = video_path.rsplit('/', 1)[-1] # get the name of the video without path prefix
     new_dir = dst_dir + "/" + video_name
     os.makedirs(new_dir)
@@ -26,7 +26,7 @@ def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
     frame_count = 0
     ret, frame = cap.read() # read the first frame
     while ret:
-        if frame_count % sample_frequency == 0:
+        if frame_count >= crop_point:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert frame from BGR to RGB (OpenCV uses BGR by default) is it needed in gray pic?
             pil_image = Image.fromarray(frame_rgb) # Convert to PIL Image
             new_frame_path = os.path.join(new_dir, str(frame_count) + ".jpg")
@@ -40,14 +40,14 @@ def sample_one_video(video_path, labels_csv_path, dst_dir, sample_frequency):
     # prepare labels:
     df = pd.read_csv(labels_csv_path)
     df = df.drop(df.columns[0], axis=1) # drop the first column (labels index)
-    sampled_labels = df.iloc[::sample_frequency, :].values
+    sampled_labels = df.iloc[crop_point:].values
 
     if len(frames_paths) != len(sampled_labels):
         raise ValueError("Mismatch between number of sampled frames and sampled labels")
 
     return frames_paths, sampled_labels
 
-def sample_all_videos(src_dir, sample_frequency):
+def sample_all_videos(src_dir, crop_point):
     current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     dst_dir = src_dir + "_sampled_" + current_time 
     os.makedirs(dst_dir)
@@ -60,7 +60,7 @@ def sample_all_videos(src_dir, sample_frequency):
     for video, labels in zip(videos_paths, labels_paths):
         abs_video_path = os.path.join(src_dir, video)
         abs_labels_path = os.path.join(src_dir, labels)
-        frames_paths, sampled_labels = sample_one_video(abs_video_path, abs_labels_path, dst_dir, sample_frequency)
+        frames_paths, sampled_labels = sample_one_video(abs_video_path, abs_labels_path, dst_dir, crop_point)
         all_frames.extend(frames_paths)
         all_labels.extend(sampled_labels)
     
@@ -80,14 +80,14 @@ def sample_all_videos(src_dir, sample_frequency):
     return frames_csv_path, labels_csv_path
 
 class FramesDataset(Dataset):
-    def __init__(self, src_dir, sample_frequency=100, transform=None):
+    def __init__(self, src_dir, scrop_point=700, transform=None):
         self.frames_list = []
         self.labels_list = []
         self.labels_csv_path = None
-        self.load_data_from_dir(src_dir, sample_frequency)
+        self.load_data_from_dir(src_dir, crop_point)
         self.transform = transform
 
-    def load_data_from_dir(self, src_dir, sample_frequency):
+    def load_data_from_dir(self, src_dir, crop_point):
         # determine type of src_dir
         src_is_video = False
         for filename in os.listdir(src_dir):
@@ -96,7 +96,7 @@ class FramesDataset(Dataset):
                 break
 
         if src_is_video:
-            frames_paths, labels_path = sample_all_videos(src_dir, sample_frequency)
+            frames_paths, labels_path = sample_all_videos(src_dir, crop_point)
         else:
             frames_paths = os.path.join(src_dir, "frames.csv")
             labels_path = os.path.join(src_dir, "labels.csv")
@@ -187,7 +187,7 @@ class EmbeddingsDataset(Dataset):
         return embeddings, tensor_label
 
 # create embeddings from a video/frames and save them in a local directory
-def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency):
+def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_point):
     model = finetunedDINOv2(backbone_size, state_dict_path) 
     print("model loaded")
     transform = transforms.Compose([
@@ -195,7 +195,7 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_f
     transforms.ToTensor()])
     # print("memory after model: ", torch.cuda.memory_allocated() / (1024**3))
 
-    dataset = FramesDataset(src_dir, sample_frequency=sample_frequency, transform=transform)
+    dataset = FramesDataset(src_dir, crop_point=crop_point, transform=transform)
     # print("memory after dataset: ", torch.cuda.memory_allocated() / (1024**3))
 
     print(f"datast loaded with {dataset.__len__()} frames")
@@ -213,7 +213,7 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_f
     all_embeddings = []
     frame_paths = []
     with torch.no_grad():
-        i = 1
+        # i = 1
         for frame_batch, _, frame_path_batch in dataloader:
             frame_batch = frame_batch.cuda()
             # print("after frame to cuda: ", torch.cuda.memory_allocated() / (1024**3))
@@ -222,8 +222,8 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_f
             all_embeddings.append(embeddings_batch)
             frame_paths.extend(frame_path_batch)
             # torch.cuda.empty_cache()
-            print(f"batch {i} done")
-            i += 1
+            # print(f"batch {i} done")
+            # i += 1
     all_embeddings = torch.cat(all_embeddings, dim=0)
 
     # create a list of the video names
@@ -248,7 +248,7 @@ def main():
     # state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_base_18000frames_20epochs.pth"
     # src_dir = "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-10-01_00:49:24"
     # dst_dir = "/home/muradek/project/Action_Detection_project/embeddings"
-    # root_dir = create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, sample_frequency=100)
+    # root_dir = create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, scrop_point=700)
     # print(f"root directory is {root_dir}")
 
     # load embeddings to dataset
