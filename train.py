@@ -48,7 +48,8 @@ def train_dino_model(config_file):
     for config_name in config.sections():
         print(f"config name: {config_name}")
         src_dir = config[config_name]['src_dir']
-        crop_point = config[config_name].getint('crop_point')
+        crop_range_str = config[config_name]['crop_range']
+        crop_range = [int(i) for i in crop_range_str.split(",")]
         backbone_size = config[config_name]['backbone_size']
         batch_size = config[config_name].getint('batch_size')
         lr = config[config_name].getfloat('lr')
@@ -57,7 +58,7 @@ def train_dino_model(config_file):
 
         for key, value in config[config_name].items():
             print(f'{key} = {value}')
-        
+
         torch.cuda.empty_cache()
         os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
 
@@ -65,7 +66,7 @@ def train_dino_model(config_file):
         transforms.Resize((392, 798)),
         transforms.ToTensor()])
 
-        dataset = FramesDataset(src_dir, crop_point=crop_point, transform=transform)
+        dataset = FramesDataset(src_dir, crop_range=crop_range, transform=transform)
         total_frames = dataset.__len__()
         print(f"dataset has {total_frames} frames")
         dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)

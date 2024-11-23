@@ -2,13 +2,13 @@ import configparser
 
 config = configparser.ConfigParser()
 
-config[f'hundred_vids_training'] = {
-    'src_dir': "/home/muradek/project/Action_Detection_project/data/dataset_100vids_sampled_2024-11-06_14:25:33",
-    'crop_point': 700,
+config[f'cropped_exp'] = {
+    'src_dir': "/home/muradek/project/Action_Detection_project/data/train_data_sampled_2024-11-23_18:06:41",
+    'crop_range': "700,1700",
     'backbone_size': "base", # in ["small", "base", "large", "giant"]
     'batch_size': 8,
     'lr': 10**(-6),
-    'num_epochs': 2,
+    'num_epochs': 5,
     'epsilon' : 0.00001
 }
 
