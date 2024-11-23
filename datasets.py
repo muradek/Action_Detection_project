@@ -13,7 +13,7 @@ import shutil
 from models import finetunedDINOv2
 
 
-def sample_one_video(video_path, labels_csv_path, dst_dir, crop_point):
+def sample_one_video(video_path, labels_csv_path, dst_dir, crop_range):
     video_name = video_path.rsplit('/', 1)[-1] # get the name of the video without path prefix
     new_dir = dst_dir + "/" + video_name
     os.makedirs(new_dir)
@@ -26,7 +26,7 @@ def sample_one_video(video_path, labels_csv_path, dst_dir, crop_point):
     frame_count = 0
     ret, frame = cap.read() # read the first frame
     while ret:
-        if frame_count >= crop_point:
+        if frame_count >= crop_range[0] and frame_count < crop_range[1]:
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) # Convert frame from BGR to RGB (OpenCV uses BGR by default) is it needed in gray pic?
             pil_image = Image.fromarray(frame_rgb) # Convert to PIL Image
             new_frame_path = os.path.join(new_dir, str(frame_count) + ".jpg")
@@ -40,31 +40,38 @@ def sample_one_video(video_path, labels_csv_path, dst_dir, crop_point):
     # prepare labels:
     df = pd.read_csv(labels_csv_path)
     df = df.drop(df.columns[0], axis=1) # drop the first column (labels index)
-    sampled_labels = df.iloc[crop_point:].values
+    sampled_labels = df.iloc[crop_range[0]:crop_range[1]].values
 
     if len(frames_paths) != len(sampled_labels):
+        print("len frames: ", len(frames_paths))
+        print("len labels: ", len(sampled_labels))
         raise ValueError("Mismatch between number of sampled frames and sampled labels")
 
     return frames_paths, sampled_labels
 
-def sample_all_videos(src_dir, crop_point):
+def sample_all_videos(src_dir, crop_range):
     current_time = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     dst_dir = src_dir + "_sampled_" + current_time 
     os.makedirs(dst_dir)
 
     videos_paths = [f for f in os.listdir(src_dir) if f.endswith('.mp4')]
-    labels_paths = [f for f in os.listdir(src_dir) if f.endswith('.csv')]
+    trials_names = [f.removesuffix(".mp4") for f in videos_paths]
+
     all_frames = []
     all_labels = []
-
-    for video, labels in zip(videos_paths, labels_paths):
+    for trial_name in trials_names:
+        video = trial_name + ".mp4"
+        labels = trial_name + ".csv"
+    # for video, labels in zip(videos_paths, labels_paths):
         abs_video_path = os.path.join(src_dir, video)
         abs_labels_path = os.path.join(src_dir, labels)
-        frames_paths, sampled_labels = sample_one_video(abs_video_path, abs_labels_path, dst_dir, crop_point)
+        frames_paths, sampled_labels = sample_one_video(abs_video_path, abs_labels_path, dst_dir, crop_range)
         all_frames.extend(frames_paths)
         all_labels.extend(sampled_labels)
     
     if len(all_frames) != len(all_labels):
+        print("len all frames: ", len(all_frames))
+        print("len all labels: ", len(all_labels))
         raise ValueError("Mismatch between number of frames and labels")
 
     frames_csv_path = os.path.join(dst_dir, "frames.csv")
@@ -80,14 +87,16 @@ def sample_all_videos(src_dir, crop_point):
     return frames_csv_path, labels_csv_path
 
 class FramesDataset(Dataset):
-    def __init__(self, src_dir, scrop_point=700, transform=None):
+    def __init__(self, src_dir, crop_range=[700,1700], transform=None):
         self.frames_list = []
         self.labels_list = []
         self.labels_csv_path = None
-        self.load_data_from_dir(src_dir, crop_point)
+        self.crop_range = crop_range
+        self.num_frames_in_video = crop_range[1] - crop_range[0]
+        self.load_data_from_dir(src_dir, crop_range)
         self.transform = transform
 
-    def load_data_from_dir(self, src_dir, crop_point):
+    def load_data_from_dir(self, src_dir, crop_range):
         # determine type of src_dir
         src_is_video = False
         for filename in os.listdir(src_dir):
@@ -96,7 +105,7 @@ class FramesDataset(Dataset):
                 break
 
         if src_is_video:
-            frames_paths, labels_path = sample_all_videos(src_dir, crop_point)
+            frames_paths, labels_path = sample_all_videos(src_dir, crop_range)
         else:
             frames_paths = os.path.join(src_dir, "frames.csv")
             labels_path = os.path.join(src_dir, "labels.csv")
@@ -187,7 +196,7 @@ class EmbeddingsDataset(Dataset):
         return embeddings, tensor_label
 
 # create embeddings from a video/frames and save them in a local directory
-def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_point):
+def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_range):
     model = finetunedDINOv2(backbone_size, state_dict_path) 
     print("model loaded")
     transform = transforms.Compose([
@@ -195,7 +204,7 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_poi
     transforms.ToTensor()])
     # print("memory after model: ", torch.cuda.memory_allocated() / (1024**3))
 
-    dataset = FramesDataset(src_dir, crop_point=crop_point, transform=transform)
+    dataset = FramesDataset(src_dir, crop_range=crop_range, transform=transform)
     # print("memory after dataset: ", torch.cuda.memory_allocated() / (1024**3))
 
     print(f"datast loaded with {dataset.__len__()} frames")
@@ -248,7 +257,7 @@ def main():
     # state_dict_path = "/home/muradek/project/Action_Detection_project/tuned_models/finetuned_base_18000frames_20epochs.pth"
     # src_dir = "/home/muradek/project/Action_Detection_project/data/small_set_sampled_2024-10-01_00:49:24"
     # dst_dir = "/home/muradek/project/Action_Detection_project/embeddings"
-    # root_dir = create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, scrop_point=700)
+    # root_dir = create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_range=[700,1700)
     # print(f"root directory is {root_dir}")
 
     # load embeddings to dataset
