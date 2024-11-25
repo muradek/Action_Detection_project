@@ -21,6 +21,8 @@ def print_initial_hists(src_dir, hist_dir):
     total_labels = 0 # to make sure summing is correct
     count_per_label = {}
 
+    colors = plt.cm.tab20(np.linspace(0, 1, 12))
+
     for i in range(1, len(csv_cols)):
         col_name = csv_cols[i]
         print("col_name: ", col_name)
@@ -36,24 +38,26 @@ def print_initial_hists(src_dir, hist_dir):
         curr_hist = (curr_hist / total_videos)*100
         indices = np.arange(len(curr_hist))
         
-        plt.plot(indices, curr_hist)
-        plt.title(f"Histogram of {col_name}")
-        plt.xlabel("Frame")
-        plt.xlim(left=0, right=num_frames)
-        plt.ylabel("Repitetions(%)")
-        plt.ylim(0, 100)
-        hist_path = os.path.join(hist_dir, f"{col_name}_histogram.png")
-        plt.savefig(hist_path)
-        plt.clf()
-        
         print(f"total {col_name}: {curr_label_count}")
         print(f"average {col_name}: {(curr_label_count/total_videos)/num_frames*100}%")
         print("")
+        # plt.plot(indices, curr_hist)
+        plt.plot(indices, curr_hist, label=col_name, color=colors[i-1], linewidth=1)
 
-    colors = plt.cm.tab20(np.linspace(0, 1, len(count_per_label)))
+
+    plt.title(f"Histogram of all labels")
+    plt.xlabel("Frame")
+    plt.xlim(left=0, right=num_frames)
+    plt.ylabel("Repitetions(%)")
+    plt.ylim(0, 100)
+    plt.legend(ncol=2, loc='upper right')
+    plt.tight_layout()
+    hist_path = os.path.join(hist_dir, "histogram.png")
+    plt.savefig(hist_path)
+    plt.clf()
 
     plt.pie(count_per_label.values(), labels=count_per_label.keys(), colors=colors, autopct='%1.1f%%')
-    plt.title("Labels Distribution Before Cropping")
+    plt.title("Labels Distribution of full dataset")
     hist_path = os.path.join(hist_dir, "PIE.png")
     plt.tight_layout()
     plt.savefig(hist_path)
@@ -104,7 +108,7 @@ def print_final_hists(src_csv, hist_dir, num_frames):
         print(f"average {col_name}: {(curr_label_count/total_videos)/num_frames*100}%")
         print("")
 
-    colors = plt.cm.tab20(np.linspace(0, 1, len(count_per_label)))
+    colors = plt.cm.tab20(np.linspace(0, 1, 12))
     plt.pie(count_per_label.values(), labels=count_per_label.keys(), colors=colors, autopct='%1.1f%%')
     plt.title("Labels Distribution After Cropping")
     hist_path = os.path.join(hist_dir, "PIE.png")
@@ -150,8 +154,8 @@ if __name__ == "__main__":
     # split_data(src_dir, train_dir, test_dir, train_size, test_size)
 
     # initial hists:
-    # src_dir = "/home/muradek/project/Action_Detection_project/data/train_30"
-    # hist_dir = "/home/muradek/project/Action_Detection_project/hist_dir/before_30"
+    # src_dir = "/home/muradek/project/Action_Detection_project/data/full_dataset"
+    # hist_dir = "/home/muradek/project/Action_Detection_project/hist_dir/new"
     # print_initial_hists(src_dir, hist_dir)
 
     # crop data:
@@ -160,7 +164,7 @@ if __name__ == "__main__":
     # sample_all_videos(src_dir, crop_range)
 
     # final hists:
-    # src_csv = "/home/muradek/project/Action_Detection_project/data/train_30_sampled_2024-11-24_14:35:11/labels.csv"
-    # hist_dir = "/home/muradek/project/Action_Detection_project/hist_dir/after_30_2"
-    # num_frames = 800
-    # print_final_hists(src_csv, hist_dir, num_frames)
+    src_csv = "/home/muradek/project/Action_Detection_project/data/train_30_sampled_2024-11-24_14:35:11/labels.csv"
+    hist_dir = "/home/muradek/project/Action_Detection_project/hist_dir/after_30_2"
+    num_frames = 800
+    print_final_hists(src_csv, hist_dir, num_frames)
