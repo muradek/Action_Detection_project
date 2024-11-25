@@ -12,6 +12,7 @@ lib*
 *.pth
 *.pt
 hist_dir/
+outputs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
