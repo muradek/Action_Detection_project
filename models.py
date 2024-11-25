@@ -56,7 +56,7 @@ class RawDINOv2(nn.Module):
         embedding_dim = backbone_embeddings[backbone_size]
         out_dim = 11 # number of classes for detection
 
-        self.labels_head = nn.Sequential(nn.Linear(embedding_dim, 256), nn.ReLU(), nn.Linear(256, out_dim), nn.Softmax(dim=1))
+        self.labels_head = nn.Sequential(nn.Linear(embedding_dim, 256), nn.ReLU(), nn.Linear(256, out_dim))
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
 
@@ -83,7 +83,7 @@ class finetunedDINOv2(nn.Module):
         return embedding
 
 class LSTM(nn.Module):
-    def __init__(self, embedding_dim, hidden_size=256, num_layers=2, sequence_length=21, num_classes=11):
+    def __init__(self, embedding_dim, hidden_size=256, num_layers=2, sequence_length=15, num_classes=11):
         super(LSTM, self).__init__()
         print("hidden size: ", hidden_size)
         print("num layers: ", num_layers)
@@ -93,7 +93,6 @@ class LSTM(nn.Module):
         self.num_layers = num_layers
         self.lstm = nn.LSTM(embedding_dim, hidden_size, num_layers, batch_first=True, bidirectional=True)
         self.fc = nn.Linear(2*hidden_size, num_classes)
-        self.softmax = nn.Softmax(dim=1)
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.to(device)
@@ -106,8 +105,10 @@ class LSTM(nn.Module):
         out, _ = self.lstm(x, (h0, c0))
         mid_idx = self.sequence_length//2
         out = self.fc(out[:, mid_idx, :])
-        out = self.softmax(out)
+        # out = self.softmax(out)
+        # one_hots = torch.argmax(out, dim=1)
         return out
+
 
 def main():
     return 0
