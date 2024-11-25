@@ -104,11 +104,13 @@ class LSTM(nn.Module):
         
         out, _ = self.lstm(x, (h0, c0))
         mid_idx = self.sequence_length//2
-        out = self.fc(out[:, mid_idx, :])
-        # out = self.softmax(out)
-        # one_hots = torch.argmax(out, dim=1)
-        return out
-
+        out = self.fc(out[:, mid_idx, :]) # out.shape=torch.Size([24, 11])
+        # for training return "probabilities" (loss uses softmax)
+        if self.training:
+            return out
+        # for testing return final predictions (argmax)
+        one_hots = torch.argmax(out, dim=1) # one_hots.shape=torch.Size([24])
+        return one_hots
 
 def main():
     return 0

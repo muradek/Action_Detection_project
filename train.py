@@ -13,6 +13,7 @@ from datasets import *
 
 
 def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
+    model.train()
     current_time = datetime.now().strftime("%m-%d_%H:%M")
     print("starting training", current_time)
     prev_loss = 0
