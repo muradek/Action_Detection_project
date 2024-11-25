@@ -91,6 +91,7 @@ class FramesDataset(Dataset):
         self.frames_list = []
         self.labels_list = []
         self.labels_csv_path = None
+        self.frames_csv_path = None
         self.crop_range = crop_range
         self.num_frames_in_video = crop_range[1] - crop_range[0]
         self.load_data_from_dir(src_dir, crop_range)
@@ -111,6 +112,7 @@ class FramesDataset(Dataset):
             labels_path = os.path.join(src_dir, "labels.csv")
 
         self.labels_csv_path = labels_path
+        self.frames_csv_path = frames_paths
 
         with open(frames_paths, mode='r') as frames_file:
             frames_reader = csv.reader(frames_file)
@@ -138,62 +140,68 @@ class FramesDataset(Dataset):
         return frame, label, frame_path
 
 class EmbeddingsDataset(Dataset):
-    def __init__(self, src_dir, sequence_length):
+    def __init__(self, src_dir, sequence_length, crop_range):
         current_time = datetime.now().strftime("%m-%d_%H:%M")
         print("starting dataset", current_time)
+
         self.src_dir = src_dir
         self.sequence_length = sequence_length
-        self.one_side_context_frames = (sequence_length - 1) // 2
+        self.one_side_window_len = (sequence_length - 1) // 2
+        self.crop_range = crop_range
+        self.video_length = crop_range[1] - crop_range[0]
         self.labels_list = []
-        self.video_names = []
-        self.video_length = 0
+        self.frames_list = []
+        self.labels_csv_path = None
+        self.frames_csv_path = None
         self.load_data_from_dir(src_dir)
+
         current_time = datetime.now().strftime("%m-%d_%H:%M")
         print("Finished dataset", current_time)
 
     def load_data_from_dir(self, src_dir):
-        # load labels
         labels_path = os.path.join(src_dir, "labels.csv")
-        with open(labels_path, mode='r') as labels_file:
-            labels_reader = csv.reader(labels_file)
-            for label in labels_reader:
-                self.labels_list.append(label)
+        frames_paths = os.path.join(src_dir, "frames.csv")
+        self.labels_csv_path = labels_path
+        self.frames_csv_path = frames_paths
 
-        # load video names
-        for filename in os.listdir(src_dir):
-            if filename.endswith('.pt'):
-                self.video_names.append(filename)
-        self.video_names.sort()
-
-        # load video length
-        first_video_path = os.path.join(src_dir, self.video_names[0])
-        first_video = torch.load(first_video_path)
-        self.video_length = len(first_video)
+        # load labels and embeddings
+        with open(frames_paths, mode='r') as frames_file:
+            frames_reader = csv.reader(frames_file)
+            with open(labels_path, mode='r') as labels_file:
+                labels_reader = csv.reader(labels_file)
+                for frame, label in zip(frames_reader, labels_reader):
+                    frame_str = "".join(frame)
+                    label_int_list = [eval(i) for i in label] # maybe not needed
+                    self.frames_list.append(frame_str)
+                    self.labels_list.append(label_int_list)
 
     def __len__(self):
         return len(self.labels_list)
 
     def __getitem__(self, idx):
-        curr_video_idx = idx // self.video_length
-        curr_video_path = os.path.join(self.src_dir, self.video_names[curr_video_idx])
+        # get embedding path and index
+        frame_path = self.frames_list[idx]
+        split_path = frame_path.split("/")
+        frame_initial_idx = int(split_path[-1].split(".")[0])
+        embedding_idx = frame_initial_idx - self.crop_range[0]
+        embedding_file_name = split_path[-2].replace("mp4", "pt")
+        embedding_path = os.path.join(self.src_dir, embedding_file_name)
 
         # load embeddings
-        curr_frame_idx = idx % self.video_length
-        lower_bound = max(0, curr_frame_idx - self.one_side_context_frames)
-        upper_bound = min(self.video_length, curr_frame_idx + self.one_side_context_frames + 1)
-        embeddings = torch.load(curr_video_path)[lower_bound:upper_bound]
+        lower_bound = max(0, embedding_idx - self.one_side_window_len)
+        upper_bound = min(self.video_length, embedding_idx + self.one_side_window_len + 1)
+        embeddings = torch.load(embedding_path)[lower_bound:upper_bound]
 
         # padding if needed
-        prefix_padding_size = max(0, self.one_side_context_frames - curr_frame_idx)
-        suffix_padding_size = max(0, self.one_side_context_frames - (self.video_length - curr_frame_idx) + 1)
+        prefix_padding_size = max(0, self.one_side_window_len - embedding_idx)
+        suffix_padding_size = max(0, self.one_side_window_len - (self.video_length - embedding_idx) + 1)
         prefix_padding = torch.zeros(prefix_padding_size, embeddings.size()[1])
         suffix_padding = torch.zeros(suffix_padding_size, embeddings.size()[1])
         embeddings = torch.cat((prefix_padding, embeddings, suffix_padding), 0)
 
         label = self.labels_list[idx]
-        ints_label = [eval(i) for i in label]
-        tensor_label = torch.tensor(ints_label, dtype=torch.float32)
-        return embeddings, tensor_label
+        tensor_label = torch.tensor(label, dtype=torch.float32)
+        return embeddings, tensor_label, embedding_file_name
 
 # create embeddings from a video/frames and save them in a local directory
 def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_range):
@@ -215,8 +223,9 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_ran
     root_dir = f"{dst_dir}/{current_time}_{dataset.__len__()}embeddings"
     os.makedirs(root_dir)
 
-    # copy the labels csv file to the root directory
+    # copy the csv files to the root directory
     shutil.copy(dataset.labels_csv_path, root_dir)
+    shutil.copy(dataset.frames_csv_path, root_dir)
 
     # save the embeddings in the root directory
     all_embeddings = []

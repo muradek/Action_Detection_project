@@ -18,7 +18,7 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
     prev_loss = 0
     for epoch in range(num_epochs):  
         losses = []
-        for frame, label in dataloader:
+        for frame, label, _ in dataloader:
             frame, label = frame.cuda(), label.cuda()
             frame.requires_grad = True
             label.requires_grad = True
@@ -85,7 +85,7 @@ def train_dino_model(config_file):
         print(f"{model_name} saved!")
         return model
 
-def train_lstm_model(backbone_size, src_dir, sequence_length, epsilon):
+def train_lstm_model(backbone_size, src_dir, sequence_length, crop_range, epsilon):
     print("training LSTM model")
     backbone_embeddings = {
         "small": 384,
@@ -95,12 +95,12 @@ def train_lstm_model(backbone_size, src_dir, sequence_length, epsilon):
     }
 
     embedding_dim = backbone_embeddings[backbone_size]
-    model = LSTM(embedding_dim=embedding_dim, hidden_size=512, num_layers=3, sequence_length=sequence_length, num_classes=11)
+    model = LSTM(embedding_dim=embedding_dim, hidden_size=256, num_layers=3, sequence_length=sequence_length, num_classes=11)
     
-    dataset = EmbeddingsDataset(src_dir, sequence_length)
+    dataset = EmbeddingsDataset(src_dir, sequence_length, crop_range)
     lr = 0.00001
     print("lr: ", lr)
-    num_epochs = 10
+    num_epochs = 4
     dataloader = DataLoader(dataset, batch_size=24, shuffle=False, num_workers=0)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=lr)
