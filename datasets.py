@@ -220,7 +220,8 @@ def create_embeddings(backbone_size, state_dict_path, src_dir, dst_dir, crop_ran
     # print("memory after dataloader: ", torch.cuda.memory_allocated() / (1024**3)) 
     print("dataloader loaded")
     current_time = datetime.now().strftime("%m-%d_%H:%M")
-    root_dir = f"{dst_dir}/{current_time}_{dataset.__len__()}embeddings"
+    src_dir_name = src_dir.split("/")[-1]
+    root_dir = f"{dst_dir}/{current_time}_{src_dir_name}_{dataset.__len__()}embeddings"
     os.makedirs(root_dir)
 
     # copy the csv files to the root directory
