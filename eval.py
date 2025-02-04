@@ -2,8 +2,8 @@ import torch
 from sklearn.metrics import f1_score, confusion_matrix, ConfusionMatrixDisplay, multilabel_confusion_matrix
 import matplotlib.pyplot as plt
 
-gold_labels_path = "/home/muradek/project/Action_Detection_project/outputs/11-25_16:41_24000labels.pth"
-pred_labels_path = "/home/muradek/project/Action_Detection_project/outputs/11-25_16:41_24000lstm_outputs.pth"
+gold_labels_path = "/home/shahafb/Action_Detection_project/outputs/11-25_16:41_24000labels.pth"
+pred_labels_path = "/home/shahafb/Action_Detection_project/outputs/11-25_16:41_24000lstm_outputs.pth"
 
 gold_labels = torch.load(gold_labels_path).cpu().numpy()
 pred_labels = torch.load(pred_labels_path).cpu().numpy()
@@ -21,7 +21,7 @@ plt.title('Confusion Matrix')
 plt.xticks(rotation=90, fontsize=9)
 plt.yticks(fontsize=9)
 plt.tight_layout()
-plt.savefig("/home/muradek/project/Action_Detection_project/outputs/confusion_matrix_3.png")
+plt.savefig("/home/shahafb/Action_Detection_project/outputs/confusion_matrix_3.png")
 plt.clf()
 
 print(f"{macro_f1=}")

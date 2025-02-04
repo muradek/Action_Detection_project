@@ -146,25 +146,25 @@ def split_data(src_dir, train_dir, test_dir, train_size, test_size):
 
 if __name__ == "__main__":
     # split data:
-    # src_dir = "/home/muradek/project/Action_Detection_project/data/full_dataset"
-    # train_dir = "/home/muradek/project/Action_Detection_project/data/train_30"
-    # test_dir = "/home/muradek/project/Action_Detection_project/data/test_10"
-    # train_size = 30
-    # test_size = 10
-    # split_data(src_dir, train_dir, test_dir, train_size, test_size)
+    src_dir = "/home/shahafb/Action_Detection_project/data/small_dataset"
+    train_dir = "/home/shahafb/Action_Detection_project/data/train_12"
+    test_dir = "/home/shahafb/Action_Detection_project/data/test_3"
+    train_size = 12
+    test_size = 3
+    split_data(src_dir, train_dir, test_dir, train_size, test_size)
 
     # initial hists:
-    # src_dir = "/home/muradek/project/Action_Detection_project/data/full_dataset"
-    # hist_dir = "/home/muradek/project/Action_Detection_project/hist_dir/new"
-    # print_initial_hists(src_dir, hist_dir)
+    src_dir = "/home/shahafb/Action_Detection_project/data/small_dataset"
+    hist_dir = "/home/shahafb/Action_Detection_project/histograms/new"
+    print_initial_hists(src_dir, hist_dir)
 
     # crop data:
-    # src_dir = "/home/muradek/project/Action_Detection_project/data/train_30"
-    # crop_range = [750,1550]
-    # sample_all_videos(src_dir, crop_range)
+    src_dir = "/home/shahafb/Action_Detection_project/data/train_12"
+    crop_range = [0,2399]
+    sample_all_videos(src_dir, crop_range)
 
     # final hists:
-    src_csv = "/home/muradek/project/Action_Detection_project/data/train_30_sampled_2024-11-24_14:35:11/labels.csv"
-    hist_dir = "/home/muradek/project/Action_Detection_project/hist_dir/after_30_2"
-    num_frames = 800
+    src_csv = "/home/shahafb/Action_Detection_project/data/small_dataset"
+    hist_dir = "/home/shahafb/Action_Detection_project/histograms"
+    num_frames = 2400
     print_final_hists(src_csv, hist_dir, num_frames)
