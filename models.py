@@ -19,8 +19,8 @@ from torch.utils.data import Dataset, DataLoader
 
 # This function creates a DINO model with the specified backbone size
 def create_dino_model(backbone_size):
-    REPO_PATH = "/home/muradek/project/DINO_dir/dinov2" # Specify a local path to the repository (or use installed package instead)
-    sys.path.append(REPO_PATH)
+    # REPO_PATH = "/home/muradek/project/DINO_dir/dinov2" # Specify a local path to the repository (or use installed package instead)
+    # sys.path.append(REPO_PATH)
     
     possible_sizes = ["small", "base", "large", "giant"]
     if not(backbone_size in possible_sizes):
@@ -111,6 +111,50 @@ class LSTM(nn.Module):
         # for testing return final predictions (argmax)
         one_hots = torch.argmax(out, dim=1) # one_hots.shape=torch.Size([24])
         return one_hots
+
+
+class TwoStreamModel(nn.Module):
+    def __init__(self, backbone_size, lstm_hidden_size=256, lstm_num_layers=2, sequence_length=15, num_classes=11):
+        super(TwoStreamModel, self).__init__()
+
+        # DINO Stream (Visual Features)
+        self.dino = finetunedDINOv2(backbone_size, state_dict_path="path_to_finetunedDINO")
+        dino_embedding_dim = {
+            "small": 384,
+            "base": 768,
+            "large": 1024,
+            "giant": 1536,
+        }[backbone_size]
+
+        # LSTM Stream (Temporal Features)
+        self.lstm = LSTM(embedding_dim=dino_embedding_dim, hidden_size=lstm_hidden_size,
+                         num_layers=lstm_num_layers, sequence_length=sequence_length, num_classes=num_classes)
+
+        # Fusion Layer (Concatenation + FC)
+        self.fc_fusion = nn.Sequential(
+            nn.Linear(2 * num_classes, 128),
+            nn.ReLU(),
+            nn.Linear(128, num_classes)
+        )
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.to(device)
+
+    def forward(self, frames, sequences):
+
+        # DINO Forward Pass (Visual Features)
+        visual_features = self.dino(frames)  # (batch_size, dino_embedding_dim)
+        visual_out = torch.softmax(visual_features, dim=-1)  # (batch_size, num_classes)
+
+        # LSTM Forward Pass (Temporal Features)
+        temporal_out = self.lstm(sequences)  # (batch_size, num_classes)
+
+        # Concatenation + Final Prediction
+        combined_features = torch.cat((visual_out, temporal_out), dim=1)  # (batch_size, 2*num_classes)
+        final_out = self.fc_fusion(combined_features)  # (batch_size, num_classes)
+
+        return final_out
+
 
 def main():
     return 0

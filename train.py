@@ -144,6 +144,11 @@ def train_lstm_model(backbone_size, src_dir, sequence_length, crop_range, epsilo
 
     destroy_process_group()
 
+##TODO:
+##def train_twostream_model():
+
+
+
 def main():
     #model = train_dino_model("argsconfig.ini")
     #model = train_lstm_model()
