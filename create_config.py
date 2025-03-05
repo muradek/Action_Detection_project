@@ -3,12 +3,12 @@ import configparser
 config = configparser.ConfigParser()
 
 config[f'cropped_exp'] = {
-    'src_dir': "/home/muradek/project/Action_Detection_project/data/train_data_sampled_2024-11-23_18:06:41",
-    'crop_range': "700,1700",
+    'src_dir': "/home/muradek/project/Action_Detection_project/data/train_30_sampled_2024-11-24_14:35:11",
+    'crop_range': "750,1550",
     'backbone_size': "base", # in ["small", "base", "large", "giant"]
     'batch_size': 8,
-    'lr': 10**(-6),
-    'num_epochs': 5,
+    'lr': 10**(-5),
+    'num_epochs': 4,
     'epsilon' : 0.00001
 }
 
