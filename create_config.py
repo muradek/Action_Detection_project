@@ -8,7 +8,7 @@ config[f'cropped_exp'] = {
     'backbone_size': "base", # in ["small", "base", "large", "giant"]
     'batch_size': 8,
     'lr': 10**(-5),
-    'num_epochs': 4,
+    'num_epochs': 2,
     'epsilon' : 0.00001
 }
 

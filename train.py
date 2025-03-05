@@ -17,7 +17,8 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
     current_time = datetime.now().strftime("%m-%d_%H:%M")
     print("starting training", current_time)
     prev_loss = 0
-    for epoch in range(num_epochs):  
+    for epoch in range(num_epochs):
+        start_time = datetime.now() 
         losses = []
         for frame, label, _ in dataloader:
             frame, label = frame.cuda(), label.cuda()
@@ -33,7 +34,10 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
             optimizer.step()
 
         avg_loss = sum(losses)/len(losses)
+        end_time = datetime.now()
+        time_passed = end_time - start_time
         print(f"Epoch [{epoch + 1}/{num_epochs}], Avg Loss: {avg_loss:.8f}")
+        print(f"Epoch [{epoch + 1}/{num_epochs}] took {time_passed}")
         if abs(prev_loss - avg_loss) < epsilon:
             print(f"Converged at epoch {epoch + 1}")
             break

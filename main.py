@@ -30,7 +30,7 @@ def main():
     # FramesDataset(src_dir, crop_range=crop_range, transform=transform)
 
     # train dino model (also creates FrameDataset and saves it locally)
-    # dino_model = train_dino_model("argsconfig.ini")
+    dino_model = train_dino_model("argsconfig.ini")
 
     # create embeddings (1. for taining LSTM model, 2. for testing LSTM model)
     # backbone_size = "base"
@@ -93,9 +93,9 @@ def main():
 
     # num_gpus = torch.cuda.device_count()
     # print(f"Allocated GPUs: {num_gpus}")
-    gpus = os.getenv("CUDA_VISIBLE_DEVICES", "")
-    num_gpus = len(gpus.split(",")) if gpus else 0
-    print(f"Allocated GPUs: {num_gpus} ({gpus})")
+    # gpus = os.getenv("CUDA_VISIBLE_DEVICES", "")
+    # num_gpus = len(gpus.split(",")) if gpus else 0
+    # print(f"Allocated GPUs: {num_gpus} ({gpus})")
 
 if __name__ == "__main__":
     main()
