@@ -57,8 +57,10 @@ class RawDINOv2(nn.Module):
         out_dim = 11 # number of classes for detection
 
         self.labels_head = nn.Sequential(nn.Linear(embedding_dim, 256), nn.ReLU(), nn.Linear(256, out_dim))
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.to(device)
+        # commented the following lines to adjust model for ddp
+        # model will be moved to gpu[rank] in the train script
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # self.to(device)
 
     def forward(self, frame):
         features = self.backbone_model(frame)

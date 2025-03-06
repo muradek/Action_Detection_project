@@ -11,17 +11,31 @@ import torch.multiprocessing as mp
 from models import *
 from datasets import *
 
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+def setup():
+    dist.init_process_group(backend="nccl")
+    torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+
+def cleanup():
+    dist.destroy_process_group()
 
 def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
     model.train()
-    current_time = datetime.now().strftime("%m-%d_%H:%M")
-    print("starting training", current_time)
-    prev_loss = 0
+    local_rank = int(os.environ['LOCAL_RANK'])
+    device = torch.device(f"cuda:{local_rank}")
+    
+    if dist.get_rank() == 0:
+        current_time = datetime.now().strftime("%m-%d_%H:%M")
+        print("starting training", current_time)
+
+    # prev_loss = 0
     for epoch in range(num_epochs):
         start_time = datetime.now() 
         losses = []
         for frame, label, _ in dataloader:
-            frame, label = frame.cuda(), label.cuda()
+            frame, label = frame.to(device, non_blocking=True), label.to(device, non_blocking=True)
             frame.requires_grad = True
             label.requires_grad = True
 
@@ -33,18 +47,19 @@ def train_model(model, criterion, optimizer, dataloader, num_epochs, epsilon):
             loss.backward()
             optimizer.step()
 
-        avg_loss = sum(losses)/len(losses)
-        end_time = datetime.now()
-        time_passed = end_time - start_time
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Avg Loss: {avg_loss:.8f}")
-        print(f"Epoch [{epoch + 1}/{num_epochs}] took {time_passed}")
-        if abs(prev_loss - avg_loss) < epsilon:
-            print(f"Converged at epoch {epoch + 1}")
-            break
-        prev_loss = avg_loss
+        avg_loss = torch.tensor(sum(losses)/len(losses), device=local_rank) # loss per single GPU
+        dist.all_reduce(avg_loss, op=dist.ReduceOp.SUM) # Aggregate loss across all processes
+        avg_loss /= dist.get_world_size() # Normalize by number of GPUs
+        if dist.get_rank()==0:
+            end_time = datetime.now()
+            time_passed = end_time - start_time
+            print(f"Epoch [{epoch + 1}/{num_epochs}], Avg Loss: {avg_loss:.8f}")
+            print(f"Epoch [{epoch + 1}/{num_epochs}] took {time_passed}")
 
-    current_time = datetime.now().strftime("%m-%d_%H:%M")
-    print("finished training", current_time)
+        # if abs(prev_loss - avg_loss) < epsilon:
+        #     print(f"Converged at epoch {epoch + 1}")
+        #     break
+        # prev_loss = avg_loss
 
 def train_dino_model(config_file):
     config = configparser.ConfigParser()
@@ -61,8 +76,9 @@ def train_dino_model(config_file):
         num_epochs = config[config_name].getint('num_epochs')
         epsilon = config[config_name].getfloat('epsilon')
 
-        for key, value in config[config_name].items():
-            print(f'{key} = {value}')
+        if dist.get_rank() == 0:
+            for key, value in config[config_name].items():
+                print(f'{key} = {value}')
 
         torch.cuda.empty_cache()
         os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:128'
@@ -72,22 +88,27 @@ def train_dino_model(config_file):
         transforms.ToTensor()])
 
         dataset = FramesDataset(src_dir, crop_range=crop_range, transform=transform)
-        total_frames = dataset.__len__()
-        print(f"dataset has {total_frames} frames")
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+        if dist.get_rank() == 0:
+            total_frames = dataset.__len__()
+            print(f"dataset has {total_frames} frames")
+
+        sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+        dataloader = DataLoader(dataset, sampler=sampler, batch_size=batch_size, shuffle=False, num_workers=2)
 
         # Instantiate the model, loss function, and optimizer
-        model = RawDINOv2(backbone_size)
+        model = RawDINOv2(backbone_size).cuda()  # Move model to GPU
+        model = DDP(model, device_ids=[int(os.environ["LOCAL_RANK"])], find_unused_parameters=True)
+        
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters(), lr=lr)
         train_model(model, criterion, optimizer, dataloader, num_epochs=num_epochs, epsilon=epsilon)
-        print("finished training")
-
-        current_time = datetime.now().strftime("%m-%d_%H:%M")
-        model_name = f"finetuned_{backbone_size}_{total_frames}frames_{num_epochs}epochs_{current_time}"
-        backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_DINO_models/{model_name}.pth" 
-        torch.save(model.state_dict(), backbone_path) 
-        print(f"{model_name} saved!")
+        if dist.get_rank() == 0:
+            current_time = datetime.now().strftime("%m-%d_%H:%M")
+            print("finished training", current_time)
+            model_name = f"finetuned_{backbone_size}_{total_frames}frames_{num_epochs}epochs_{current_time}"
+            backbone_path = f"/home/muradek/project/Action_Detection_project/tuned_DINO_models/{model_name}.pth" 
+            torch.save(model.state_dict(), backbone_path) 
+            print(f"{model_name} saved!")
         return model
 
 def train_lstm_model(backbone_size, src_dir, sequence_length, crop_range, epsilon):
@@ -124,9 +145,11 @@ def train_lstm_model(backbone_size, src_dir, sequence_length, crop_range, epsilo
 
 
 def main():
-    # model = train_dino_model("argsconfig.ini")
+    setup()
+    train_dino_model("argsconfig.ini")
+    cleanup()
     # model = train_lstm_model()
-    print("currently not training any models")
+    # print("currently not training any models")
 
 if __name__ == "__main__":
     main()
